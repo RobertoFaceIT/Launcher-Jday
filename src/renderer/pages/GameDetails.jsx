@@ -47,14 +47,26 @@ export default function GameDetails() {
 
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
   const [inLibrary, setInLibrary] = useState(false);
+  const [libraryEntry, setLibraryEntry] = useState(null);
 
   // Check if game is in library
   useEffect(() => {
     if (!game?._id) return;
     usersAPI.getLibrary().then(res => {
-      const found = (res.data.library || []).some(entry => entry.game && entry.game._id === game._id);
-      setInLibrary(found);
+      const foundEntry = (res.data.library || []).find(entry => entry.game && entry.game._id === game._id);
+      if (foundEntry) {
+        setInLibrary(true);
+        setLibraryEntry(foundEntry);
+      } else {
+        setInLibrary(false);
+        setLibraryEntry(null);
+      }
+    }).catch(err => {
+      console.error('Error fetching library:', err);
+      setInLibrary(false);
+      setLibraryEntry(null);
     });
   }, [game?._id]);
 
@@ -78,11 +90,29 @@ export default function GameDetails() {
     try {
       await usersAPI.removeFromLibrary(game._id);
       setInLibrary(false);
+      setLibraryEntry(null);
       success && success('Game removed from your library.');
     } catch (err) {
       alert('Failed to remove from library.');
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const handleUninstall = async () => {
+    if (!game?._id) return;
+    setUninstalling(true);
+    try {
+      await usersAPI.updateLibraryGame(game._id, { status: 'not_installed', installProgress: 0 });
+      // Refresh library entry to get updated status
+      const res = await usersAPI.getLibrary();
+      const foundEntry = (res.data.library || []).find(entry => entry.game && entry.game._id === game._id);
+      setLibraryEntry(foundEntry);
+      success && success('Game uninstalled successfully.');
+    } catch (err) {
+      alert('Failed to uninstall game.');
+    } finally {
+      setUninstalling(false);
     }
   };
 
@@ -247,13 +277,24 @@ export default function GameDetails() {
               Buy Now
             </button>
             {inLibrary ? (
-              <button
-                onClick={handleRemoveFromLibrary}
-                className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition-colors border border-white/20 disabled:opacity-60"
-                disabled={removing}
-              >
-                {removing ? 'Removing...' : 'Remove from Library'}
-              </button>
+              // Game is in library - show uninstall or remove based on installation status
+              libraryEntry?.status === 'installed' ? (
+                <button
+                  onClick={handleUninstall}
+                  className="w-full py-3 bg-orange-600 hover:bg-orange-700 rounded-lg font-semibold transition-colors border border-white/20 disabled:opacity-60"
+                  disabled={uninstalling}
+                >
+                  {uninstalling ? 'Uninstalling...' : 'Uninstall'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleRemoveFromLibrary}
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition-colors border border-white/20 disabled:opacity-60"
+                  disabled={removing}
+                >
+                  {removing ? 'Removing...' : 'Remove from Library'}
+                </button>
+              )
             ) : (
               <button
                 onClick={handleAddToLibrary}
@@ -264,6 +305,24 @@ export default function GameDetails() {
               </button>
             )}
           </div>
+
+          {/* Installation Status */}
+          {inLibrary && libraryEntry && (
+            <div className="mt-3 text-center">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                libraryEntry.status === 'installed' 
+                  ? 'bg-green-100 text-green-800' 
+                  : libraryEntry.status === 'installing'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                {libraryEntry.status === 'installed' && '✓ Installed'}
+                {libraryEntry.status === 'installing' && '⏳ Installing...'}
+                {libraryEntry.status === 'not_installed' && '⏸ Not Installed'}
+                {libraryEntry.status === 'need_update' && '🔄 Update Available'}
+              </span>
+            </div>
+          )}
 
           {/* Game Info */}
           <div className="mt-6 space-y-2 text-sm">

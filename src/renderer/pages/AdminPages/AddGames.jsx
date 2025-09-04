@@ -54,6 +54,9 @@ const AddGames = () => {
     screenshots: [null, null] // Start with 2 empty screenshot slots
   });
 
+  const [gameFile, setGameFile] = useState(null);
+  const [gameFileUploading, setGameFileUploading] = useState(false);
+
   // Check if we're in edit mode and load game data
   useEffect(() => {
     const checkEditMode = async () => {
@@ -246,6 +249,70 @@ const AddGames = () => {
     }
   };
 
+  const handleGameFileUpload = (file) => {
+    if (!file) return;
+
+    // Validate file type (.nsp, .docx for testing, and .zip files)
+    const allowedExtensions = ['.nsp', '.docx', '.zip'];
+    const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+      addToast('Only .NSP, .DOCX, and .ZIP files are allowed for game uploads', 'error');
+      return;
+    }
+
+    // Validate file size (max 20GB)
+    if (file.size > 20 * 1024 * 1024 * 1024) {
+      addToast('Game file size should be less than 20GB', 'error');
+      return;
+    }
+
+    setGameFile(file);
+    addToast('Game file selected successfully', 'success');
+  };
+
+  const removeGameFile = () => {
+    setGameFile(null);
+  };
+
+  const uploadGameFile = async (gameId) => {
+    if (!gameFile) {
+      console.log('No game file to upload');
+      return;
+    }
+
+    console.log('Starting game file upload for game ID:', gameId);
+    console.log('Game file details:', {
+      name: gameFile.name,
+      size: gameFile.size,
+      type: gameFile.type
+    });
+
+    setGameFileUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('gameFile', gameFile);
+
+      console.log('Uploading to URL:', `/uploads/game-file/${gameId}`);
+      const response = await api.post(`/uploads/game-file/${gameId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      console.log('Upload response:', response.data);
+      addToast('Game file uploaded successfully!', 'success');
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading game file:', error);
+      console.error('Error response:', error.response?.data);
+      addToast(error.response?.data?.message || 'Failed to upload game file', 'error');
+      throw error;
+    } finally {
+      setGameFileUploading(false);
+    }
+  };
+
   const addScreenshotSlot = () => {
     const currentLength = imagePreviews.screenshots.length;
     if (currentLength >= 10) {
@@ -311,6 +378,17 @@ const AddGames = () => {
           // Use JSON data if no new images
           const response = await api.put(`/admin/games/${existingGame._id}`, gameData);
         }
+        
+        // Upload game file if provided (for edit mode)
+        if (gameFile) {
+          try {
+            await uploadGameFile(existingGame._id);
+          } catch (fileError) {
+            console.error('Game file upload failed:', fileError);
+            addToast('Game updated but file upload failed. Please try uploading the file again.', 'warning');
+          }
+        }
+        
         addToast('Game updated successfully!', 'success');
       } else {
         // Create new game
@@ -353,7 +431,25 @@ const AddGames = () => {
           }
         });
 
+        console.log('Game creation response:', response.data);
         addToast('Game created successfully!', 'success');
+
+        // Upload game file if provided
+        if (gameFile && response.data?.game?._id) {
+          console.log('Uploading game file for game ID:', response.data.game._id);
+          try {
+            const fileUploadResult = await uploadGameFile(response.data.game._id);
+            console.log('Game file upload result:', fileUploadResult);
+            addToast('Game file uploaded successfully!', 'success');
+          } catch (fileError) {
+            console.error('Game file upload failed:', fileError);
+            // Game was created but file upload failed
+            addToast('Game created but file upload failed. You can edit the game to upload the file later.', 'warning');
+          }
+        } else if (gameFile) {
+          console.error('Game file selected but no game ID returned from creation');
+          addToast('Game created but file upload failed - no game ID returned', 'warning');
+        }
       }
       
       navigate('/admin/games');
@@ -583,6 +679,62 @@ const AddGames = () => {
                     placeholder="https://example.com/download"
                     className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                   />
+                </div>
+
+                {/* Game File Upload */}
+                <div>
+                  <label className="block text-white/70 text-sm font-medium mb-2">
+                    Game File Upload (.NSP, .DOCX for testing, or .ZIP files)
+                  </label>
+                  <div className="space-y-3">
+                    {gameFile ? (
+                      <div className="bg-neutral-700 border border-neutral-600 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-white font-medium">{gameFile.name}</p>
+                            <p className="text-white/60 text-sm">
+                              {(gameFile.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={removeGameFile}
+                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-neutral-600 rounded-lg p-6 text-center">
+                        <input
+                          type="file"
+                          accept=".nsp,.docx,.zip"
+                          onChange={(e) => handleGameFileUpload(e.target.files[0])}
+                          className="hidden"
+                          id="gameFileInput"
+                        />
+                        <label
+                          htmlFor="gameFileInput"
+                          className="cursor-pointer text-white/70 hover:text-white"
+                        >
+                          <div className="space-y-2">
+                            <div className="text-4xl">📁</div>
+                            <p>Click to select game file</p>
+                            <p className="text-sm">Supports .NSP, .DOCX, and .ZIP files (up to 20GB)</p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                    {existingGame?.gameFilePath && (
+                      <div className="bg-neutral-800 border border-neutral-600 rounded-lg p-3">
+                        <p className="text-white/70 text-sm">Current file: {existingGame.gameFileName || 'Unknown filename'}</p>
+                        <p className="text-white/60 text-xs">
+                          Size: {existingGame.gameFileSize ? (existingGame.gameFileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown size'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>

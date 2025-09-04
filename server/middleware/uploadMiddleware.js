@@ -36,12 +36,32 @@ const imageFilter = (req, file, cb) => {
   }
 };
 
+// File filter for game files (.NSP, .DOCX for testing, and .ZIP files)
+const gameFileFilter = (req, file, cb) => {
+  const allowedExtensions = ['.nsp', '.docx', '.zip'];
+  const fileExtension = path.extname(file.originalname).toLowerCase();
+  
+  if (allowedExtensions.includes(fileExtension)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only .NSP, .DOCX, and .ZIP files are allowed for game uploads!'), false);
+  }
+};
+
 // Configure multer for different upload types
 const uploadConfig = {
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: imageFilter
+};
+
+// Configure multer for game files (larger limit)
+const gameFileConfig = {
+  limits: {
+    fileSize: 20 * 1024 * 1024 * 1024, // 20GB limit for game files
+  },
+  fileFilter: gameFileFilter
 };
 
 // Create different upload middleware for different purposes
@@ -59,6 +79,12 @@ const uploadGameScreenshots = multer({
   storage: createStorage('screenshots'),
   ...uploadConfig
 }).array('screenshots', 10); // Allow up to 10 screenshots
+
+// Game file upload middleware for actual game files
+const uploadGameFile = multer({
+  storage: createStorage('gamefiles'),
+  ...gameFileConfig
+}).single('gameFile');
 
 // Generic upload middleware that can handle any image
 const uploadImage = multer({
@@ -96,6 +122,13 @@ const handleUploadError = (error, req, res, next) => {
     });
   }
   
+  if (error.message === 'Only .NSP, .DOCX, and .ZIP files are allowed for game uploads!') {
+    return res.status(400).json({
+      success: false,
+      message: 'Only .NSP, .DOCX, and .ZIP files are allowed for game uploads.'
+    });
+  }
+  
   next(error);
 };
 
@@ -115,6 +148,7 @@ module.exports = {
   uploadProfile,
   uploadGameImage,
   uploadGameScreenshots,
+  uploadGameFile,
   uploadImage,
   handleUploadError,
   getFileUrl,

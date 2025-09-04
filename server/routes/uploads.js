@@ -6,7 +6,8 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { 
   uploadProfile, 
   uploadGameImage, 
-  uploadGameScreenshots, 
+  uploadGameScreenshots,
+  uploadGameFile,
   handleUploadError,
   getFileUrl,
   deleteFile 
@@ -186,6 +187,196 @@ router.post('/game-screenshots/:gameId', authMiddleware, (req, res) => {
   });
 });
 
+// Upload game file (.NSP or .docx for testing)
+router.post('/game-file/:gameId', authMiddleware, (req, res) => {
+  uploadGameFile(req, res, async (err) => {
+    if (err) {
+      return handleUploadError(err, req, res, () => {});
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No game file uploaded'
+      });
+    }
+
+    try {
+      const game = await Game.findById(req.params.gameId);
+      if (!game) {
+        deleteFile(req.file.path);
+        return res.status(404).json({
+          success: false,
+          message: 'Game not found'
+        });
+      }
+
+      // Delete old game file if it exists
+      if (game.gameFilePath) {
+        const oldFilePath = path.join(__dirname, '..', 'uploads', 'gamefiles', path.basename(game.gameFilePath));
+        deleteFile(oldFilePath);
+      }
+
+      // Update game with new file information
+      const fileUrl = getFileUrl(req, req.file.filename, 'gamefiles');
+      game.gameFilePath = fileUrl;
+      game.gameFileSize = req.file.size;
+      game.gameFileName = req.file.originalname;
+      await game.save();
+
+      res.json({
+        success: true,
+        message: 'Game file uploaded successfully',
+        data: {
+          gameFilePath: fileUrl,
+          gameFileSize: req.file.size,
+          gameFileName: req.file.originalname,
+          game: game
+        }
+      });
+
+    } catch (error) {
+      console.error('Error uploading game file:', error);
+      deleteFile(req.file.path);
+      res.status(500).json({
+        success: false,
+        message: 'Error uploading game file'
+      });
+    }
+  });
+});
+
+// Test endpoint to verify routing works
+router.get('/test', (req, res) => {
+  res.json({ message: 'Upload routes are working', timestamp: new Date().toISOString() });
+});
+
+// Special auth middleware for file downloads that accepts token in query params
+const fileDownloadAuth = async (req, res, next) => {
+  try {
+    let token = null;
+    
+    // Try to get token from Authorization header first
+    const authHeader = req.header('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    
+    // If no token in header, try query parameter
+    if (!token && req.query.token) {
+      token = req.query.token;
+    }
+    
+    if (!token) {
+      return res.status(401).json({ 
+        error: 'Access denied. No valid token provided.' 
+      });
+    }
+
+    const jwt = require('jsonwebtoken');
+    const User = require('../models/User');
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('-password');
+    
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'Token is valid but user no longer exists.' 
+      });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token.' });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token has expired.' });
+    }
+    
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ error: 'Server error during authentication.' });
+  }
+};
+
+// Download game file for installation
+router.get('/download-game/:gameId', authMiddleware, async (req, res) => {
+  try {
+    console.log('Download request for game ID:', req.params.gameId);
+    
+    const game = await Game.findById(req.params.gameId);
+    if (!game) {
+      console.log('Game not found in database');
+      return res.status(404).json({
+        success: false,
+        message: 'Game not found'
+      });
+    }
+    
+    console.log('Game found:', {
+      title: game.title,
+      gameFilePath: game.gameFilePath,
+      gameFileName: game.gameFileName,
+      gameFileSize: game.gameFileSize
+    });
+    
+    if (!game.gameFilePath) {
+      console.log('Game has no file path');
+      return res.status(404).json({
+        success: false,
+        message: 'Game file not found'
+      });
+    }
+
+    // Get the file path from the gameFilePath URL
+    const fileName = path.basename(game.gameFilePath);
+    const filePath = path.join(__dirname, '..', 'uploads', 'gamefiles', fileName);
+    
+    console.log('Looking for file at:', filePath);
+    
+    // Check if file exists on disk
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      console.log('File does not exist on disk');
+      return res.status(404).json({
+        success: false,
+        message: 'Game file not found on disk'
+      });
+    }
+    
+    const fileStats = fs.statSync(filePath);
+    console.log('File exists, size:', fileStats.size, 'bytes');
+
+    // Set headers for file download
+    res.setHeader('Content-Disposition', `attachment; filename="${game.gameFileName || fileName}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', fileStats.size);
+
+    console.log('Streaming file to client...');
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    
+    fileStream.on('error', (error) => {
+      console.error('File stream error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'File stream error' });
+      }
+    });
+    
+    fileStream.pipe(res);
+
+  } catch (error) {
+    console.error('Error downloading game file:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Error downloading game file: ' + error.message
+      });
+    }
+  }
+});
+
 // Delete profile picture
 router.delete('/profile-picture', authMiddleware, async (req, res) => {
   try {
@@ -294,6 +485,44 @@ router.delete('/game-screenshots/:gameId', authMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting game screenshots'
+    });
+  }
+});
+
+// Delete game file
+router.delete('/game-file/:gameId', authMiddleware, async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.gameId);
+    if (!game) {
+      return res.status(404).json({
+        success: false,
+        message: 'Game not found'
+      });
+    }
+
+    if (game.gameFilePath) {
+      // Delete the file
+      const filePath = path.join(__dirname, '..', 'uploads', 'gamefiles', path.basename(game.gameFilePath));
+      deleteFile(filePath);
+
+      // Remove from database
+      game.gameFilePath = null;
+      game.gameFileSize = 0;
+      game.gameFileName = null;
+      await game.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Game file deleted successfully',
+      data: { game }
+    });
+
+  } catch (error) {
+    console.error('Error deleting game file:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting game file'
     });
   }
 });

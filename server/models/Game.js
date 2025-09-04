@@ -130,6 +130,20 @@ const gameSchema = new mongoose.Schema({
     trim: true,
     default: null
   },
+  gameFilePath: {
+    type: String,
+    trim: true,
+    default: null // Path to the actual game file (.NSP or .docx for testing)
+  },
+  gameFileSize: {
+    type: Number,
+    default: 0 // File size in bytes
+  },
+  gameFileName: {
+    type: String,
+    trim: true,
+    default: null // Original filename of the uploaded game file
+  },
   platform: {
     type: String,
     trim: true,

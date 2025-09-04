@@ -8,6 +8,8 @@ export default function Library() {
   const [library, setLibrary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState({});
+  const [installedGamesStatus, setInstalledGamesStatus] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,18 +18,71 @@ export default function Library() {
       .then(res => {
         setLibrary(res.data.library || []);
         setLoading(false);
+        
+        // Check installation status for each game
+        checkAllGamesInstallation(res.data.library || []);
       })
       .catch(err => {
         setError('Failed to load library');
         setLoading(false);
       });
+
+    // Set up download progress listener
+    const handleProgress = (data) => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        [data.gameId]: data
+      }));
+    };
+
+    if (window.electronAPI?.onDownloadProgress) {
+      window.electronAPI.onDownloadProgress(handleProgress);
+    }
+
+    return () => {
+      if (window.electronAPI?.removeDownloadProgressListener) {
+        window.electronAPI.removeDownloadProgressListener(handleProgress);
+      }
+    };
   }, []);
 
+  // Check installation status for all games
+  const checkAllGamesInstallation = async (gamesList) => {
+    const statusMap = {};
+    
+    for (const entry of gamesList) {
+      if (entry.game?.gameFileName) {
+        try {
+          const status = await window.electronAPI?.checkGameInstalled?.(entry.game.gameFileName);
+          statusMap[entry.game._id] = status;
+        } catch (error) {
+          console.error('Error checking game installation:', error);
+          statusMap[entry.game._id] = { installed: false };
+        }
+      }
+    }
+    
+    setInstalledGamesStatus(statusMap);
+  };
+
   // Categorize games by status
-  const installedGames = library.filter(g => g.status === 'installed');
-  const notInstalledGames = library.filter(g => g.status === 'not_installed');
-  const installingGames = library.filter(g => g.status === 'installing');
-  const needUpdateGames = library.filter(g => g.status === 'need_update');
+  const getGameStatus = (entry) => {
+    const gameId = entry.game._id;
+    const progressData = downloadProgress[gameId];
+    const installStatus = installedGamesStatus[gameId];
+    
+    if (progressData && progressData.progress < 100) {
+      return 'installing';
+    } else if (installStatus?.installed) {
+      return 'installed';
+    } else {
+      return 'not_installed';
+    }
+  };
+
+  const installedGames = library.filter(g => getGameStatus(g) === 'installed');
+  const notInstalledGames = library.filter(g => getGameStatus(g) === 'not_installed');
+  const installingGames = library.filter(g => getGameStatus(g) === 'installing');
 
 
   // Action handlers
@@ -37,44 +92,187 @@ export default function Library() {
       .then(res => {
         setLibrary(res.data.library || []);
         setLoading(false);
+        checkAllGamesInstallation(res.data.library || []);
       })
       .catch(() => setLoading(false));
   };
 
-  const launch = (game) => {
-    if (game?.game?.downloadLink) {
-      window.electronAPI?.launchGame?.(game.game.downloadLink);
+  const launch = async (entry) => {
+    try {
+      const game = entry.game;
+      const installStatus = installedGamesStatus[game._id];
+      
+      if (installStatus?.installed && game.gameFileName) {
+        // Launch from app library
+        const result = await window.electronAPI?.launchGame?.({
+          fileName: game.gameFileName,
+          gameId: game._id
+        });
+        
+        if (result?.success) {
+          console.log('Game launched successfully:', result.message);
+        } else {
+          console.error('Launch failed:', result?.error);
+        }
+      } else if (game?.downloadLink) {
+        // Fallback to external download link
+        window.open(game.downloadLink, '_blank');
+      } else {
+        console.error('Game not installed and no download link available');
+      }
+    } catch (error) {
+      console.error('Launch error:', error);
     }
   };
 
   const handleInstall = async (entry) => {
-    await usersAPI.updateLibraryGame(entry.game._id, { status: 'installing', installProgress: 0 });
-    refreshLibrary();
+    try {
+      const game = entry.game;
+      console.log('Installing game:', game.title);
+      console.log('Game data:', game);
+      
+      // Check if game has a file to download
+      if (!game.gameFilePath || !game.gameFileName) {
+        if (game.downloadLink) {
+          console.log('Using external download link:', game.downloadLink);
+          window.open(game.downloadLink, '_blank');
+          return;
+        } else {
+          throw new Error('No download source available for this game');
+        }
+      }
+
+      // Get authentication token
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Starting app library download...');
+      
+      // Start download using Electron API
+      try {
+        const result = await window.electronAPI?.downloadGameToLibrary?.({
+          gameId: game._id,
+          fileName: game.gameFileName,
+          token: token
+        });
+
+        console.log('Download result:', result);
+
+        if (result?.success) {
+          console.log('Download completed successfully:', result.message);
+          
+          // Update installation status
+          setInstalledGamesStatus(prev => ({
+            ...prev,
+            [game._id]: { 
+              installed: true, 
+              filePath: result.filePath,
+              fileSize: game.gameFileSize || 0,
+              installDate: new Date()
+            }
+          }));
+          
+          // Clear download progress
+          setDownloadProgress(prev => {
+            const newProgress = { ...prev };
+            delete newProgress[game._id];
+            return newProgress;
+          });
+          
+        } else {
+          throw new Error(result?.error || 'Download failed - no success response');
+        }
+      } catch (downloadError) {
+        console.error('Download API error:', downloadError);
+        throw new Error(`Download failed: ${downloadError.message}`);
+      }
+      
+    } catch (error) {
+      console.error('Installation failed:', error);
+      
+      // Clear download progress on error
+      setDownloadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[entry.game._id];
+        return newProgress;
+      });
+      
+      // Show error to user (you might want to add a toast notification here)
+      alert(`Installation failed: ${error.message}`);
+    }
   };
 
   const handleUninstall = async (entry) => {
-    await usersAPI.updateLibraryGame(entry.game._id, { status: 'not_installed', installProgress: 0 });
-    refreshLibrary();
+    try {
+      const game = entry.game;
+      
+      if (game.gameFileName) {
+        // Remove from app library
+        const result = await window.electronAPI?.uninstallGame?.(game.gameFileName);
+        
+        if (result?.success) {
+          console.log('Game uninstalled successfully:', result.message);
+          
+          // Update installation status
+          setInstalledGamesStatus(prev => ({
+            ...prev,
+            [game._id]: { installed: false }
+          }));
+        } else {
+          console.error('Uninstall failed:', result?.error);
+        }
+      }
+    } catch (error) {
+      console.error('Uninstall error:', error);
+    }
   };
 
   const handleRemove = async (entry) => {
+    // Remove from server library
     await usersAPI.removeFromLibrary(entry.game._id);
+    
+    // Also uninstall locally if installed
+    if (entry.game.gameFileName) {
+      await window.electronAPI?.uninstallGame?.(entry.game.gameFileName);
+    }
+    
+    // Update local state
+    setInstalledGamesStatus(prev => {
+      const newStatus = { ...prev };
+      delete newStatus[entry.game._id];
+      return newStatus;
+    });
+    
     refreshLibrary();
   };
 
   const handlePause = async (entry) => {
-    await usersAPI.updateLibraryGame(entry.game._id, { status: 'not_installed' });
-    refreshLibrary();
+    // Clear download progress (effectively pausing/canceling the download)
+    setDownloadProgress(prev => {
+      const newProgress = { ...prev };
+      delete newProgress[entry.game._id];
+      return newProgress;
+    });
   };
 
   const handleCancel = async (entry) => {
-    await usersAPI.updateLibraryGame(entry.game._id, { status: 'not_installed', installProgress: 0 });
-    refreshLibrary();
-  };
-
-  const handleUpdate = async (entry) => {
-    await usersAPI.updateLibraryGame(entry.game._id, { status: 'installing', installProgress: 0 });
-    refreshLibrary();
+    // Clear download progress and uninstall if partially downloaded
+    setDownloadProgress(prev => {
+      const newProgress = { ...prev };
+      delete newProgress[entry.game._id];
+      return newProgress;
+    });
+    
+    // Also try to remove any partial files
+    if (entry.game.gameFileName) {
+      await window.electronAPI?.uninstallGame?.(entry.game.gameFileName);
+      setInstalledGamesStatus(prev => ({
+        ...prev,
+        [entry.game._id]: { installed: false }
+      }));
+    }
   };
 
   if (loading) return <div className="text-center py-12 text-white/60">Loading library...</div>;
@@ -86,8 +284,16 @@ export default function Library() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Library</h2>
-        <div className="text-sm text-white/60">
-          {installedGames.length} installed • {notInstalledGames.length} not installed • {installingGames.length} installing • {needUpdateGames.length} need update
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => window.electronAPI?.openLibraryFolder?.()}
+            className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm transition-colors flex items-center gap-2"
+          >
+            📁 Open Library Folder
+          </button>
+          <div className="text-sm text-white/60">
+            {installedGames.length} installed • {notInstalledGames.length} not installed • {installingGames.length} installing
+          </div>
         </div>
       </div>
 
@@ -108,32 +314,40 @@ export default function Library() {
                 🟢 Installed Games ({installedGames.length})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {installedGames.map(entry => (
-                  <div key={entry.game._id} className="rounded-lg p-4 bg-white/5 hover:bg-white/10 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{entry.game.title}</div>
-                        <div className="text-sm text-green-400 mt-1">
-                          ✅ Ready to play
+                {installedGames.map(entry => {
+                  const installStatus = installedGamesStatus[entry.game._id];
+                  return (
+                    <div key={entry.game._id} className="rounded-lg p-4 bg-white/5 hover:bg-white/10 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold">{entry.game.title}</div>
+                          <div className="text-sm text-green-400 mt-1">
+                            ✅ Ready to play
+                          </div>
+                          {installStatus?.fileSize && (
+                            <div className="text-xs text-white/60 mt-1">
+                              Size: {(installStatus.fileSize / 1024 / 1024).toFixed(1)} MB
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => launch(entry)}
+                            className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 font-medium transition-colors"
+                          >
+                            🚀 Launch
+                          </button>
+                          <button
+                            onClick={() => handleUninstall(entry)}
+                            className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm transition-colors"
+                          >
+                            Uninstall
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => launch(entry)}
-                          className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 font-medium transition-colors"
-                        >
-                          🚀 Launch
-                        </button>
-                        <button
-                          onClick={() => handleUninstall(entry)}
-                          className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm transition-colors"
-                        >
-                          Uninstall
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -145,65 +359,52 @@ export default function Library() {
                 ⏳ Installing ({installingGames.length})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {installingGames.map(entry => (
-                  <div key={entry.game._id} className="rounded-lg p-4 bg-white/5 hover:bg-white/10 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{entry.game.title}</div>
-                        <div className="text-sm text-blue-400 mt-1">
-                          {entry.installProgress ? `Installing... ${entry.installProgress}%` : 'Installing...'}
+                {installingGames.map(entry => {
+                  const progress = downloadProgress[entry.game._id];
+                  return (
+                    <div key={entry.game._id} className="rounded-lg p-4 bg-white/5 hover:bg-white/10 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold">{entry.game.title}</div>
+                          <div className="text-sm text-blue-400 mt-1">
+                            {progress ? (
+                              <div>
+                                <div>Installing... {progress.progress}%</div>
+                                <div className="text-xs text-white/60">
+                                  {(progress.downloadedBytes / 1024 / 1024).toFixed(1)} MB / {(progress.totalBytes / 1024 / 1024).toFixed(1)} MB
+                                </div>
+                                <div className="w-full bg-gray-700 rounded-full h-2 mt-1">
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${progress.progress}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            ) : (
+                              'Starting download...'
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-800 transition-colors"
+                            title="Pause"
+                            onClick={() => handlePause(entry)}
+                          >
+                            <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><rect x="4" y="4" width="4" height="12" rx="1" fill="white"/><rect x="12" y="4" width="4" height="12" rx="1" fill="white"/></svg>
+                          </button>
+                          <button
+                            className="p-2 rounded-lg bg-red-700 hover:bg-red-800 transition-colors"
+                            title="Cancel"
+                            onClick={() => handleCancel(entry)}
+                          >
+                            <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><path d="M6 6l8 8M6 14L14 6" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-800 transition-colors"
-                          title="Pause"
-                          onClick={() => handlePause(entry)}
-                        >
-                          <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><rect x="4" y="4" width="4" height="12" rx="1" fill="white"/><rect x="12" y="4" width="4" height="12" rx="1" fill="white"/></svg>
-                        </button>
-                        <button
-                          className="p-2 rounded-lg bg-red-700 hover:bg-red-800 transition-colors"
-                          title="Cancel"
-                          onClick={() => handleCancel(entry)}
-                        >
-                          <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><path d="M6 6l8 8M6 14L14 6" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Need Update Games */}
-          {needUpdateGames.length > 0 && (
-            <div>
-              <h3 className="text-lg font-medium mb-4 text-orange-400">
-                🛠️ Need Update ({needUpdateGames.length})
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {needUpdateGames.map(entry => (
-                  <div key={entry.game._id} className="rounded-lg p-4 bg-white/5 hover:bg-white/10 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{entry.game.title}</div>
-                        <div className="text-sm text-orange-400 mt-1">
-                          🛠️ Update required
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 font-medium transition-colors"
-                          onClick={() => handleUpdate(entry)}
-                        >
-                          Update
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
