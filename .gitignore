@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Build outputs / Bundles
+/dist/
+/build/
+/out/
+/.cache/
+/.vite/
+server/dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Environment files
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# Editor & IDE
+.vscode/
+.idea/
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Uploads / runtime files
+server/uploads/
+
+# Misc
+*.swp
+*.swo
+*.orig
+
+# Electron/packager caches & releases (if used)
+.electron-cache/
+releases/
+release/
