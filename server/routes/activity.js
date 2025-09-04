@@ -12,6 +12,12 @@ router.post('/heartbeat', authMiddleware, async (req, res) => {
       isOnline: true
     });
 
+    // Broadcast presence update to friends
+    try {
+      const io = req.app.get('io');
+      io.emit('presence:update', { userId: req.user._id.toString(), isOnline: true, lastSeen: new Date().toISOString() });
+    } catch {}
+
     res.json({ success: true });
   } catch (error) {
     console.error('Heartbeat error:', error);
@@ -26,6 +32,12 @@ router.post('/offline', authMiddleware, async (req, res) => {
       lastSeen: new Date(),
       isOnline: false
     });
+
+    // Broadcast presence update to friends
+    try {
+      const io = req.app.get('io');
+      io.emit('presence:update', { userId: req.user._id.toString(), isOnline: false, lastSeen: new Date().toISOString() });
+    } catch {}
 
     res.json({ success: true });
   } catch (error) {

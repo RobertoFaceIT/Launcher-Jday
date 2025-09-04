@@ -223,23 +223,13 @@ gameSchema.statics.searchGames = function(searchTerm, options = {}) {
 
 // Pre-save middleware to validate screenshots array
 gameSchema.pre('save', function(next) {
-  // Ensure screenshots array has valid URLs only
-  if (this.screenshots && this.screenshots.length > 0) {
-    // Filter out empty strings and invalid URLs
-    this.screenshots = this.screenshots.filter(url => url && url.trim() && url.startsWith('http'));
-    
-    // Ensure we have exactly 4 slots, but leave empty ones as null/undefined
-    while (this.screenshots.length < 4) {
-      this.screenshots.push(null);
-    }
-    
-    // Trim to exactly 4 if more
-    if (this.screenshots.length > 4) {
-      this.screenshots = this.screenshots.slice(0, 4);
-    }
+  // Keep only valid URLs and cap to 10
+  if (Array.isArray(this.screenshots)) {
+    this.screenshots = this.screenshots
+      .filter(url => typeof url === 'string' && url.trim() && url.startsWith('http'))
+      .slice(0, 10);
   } else {
-    // Set empty array if no screenshots provided
-    this.screenshots = [null, null, null, null];
+    this.screenshots = [];
   }
 
   // Ensure discount matches price difference

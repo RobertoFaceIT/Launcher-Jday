@@ -46,12 +46,12 @@ const AddGames = () => {
 
   const [imageFiles, setImageFiles] = useState({
     coverImage: null,
-    screenshots: [null, null, null, null]
+    screenshots: [null, null] // Start with 2 empty screenshot slots
   });
 
   const [imagePreviews, setImagePreviews] = useState({
     coverImage: null,
-    screenshots: [null, null, null, null]
+    screenshots: [null, null] // Start with 2 empty screenshot slots
   });
 
   // Check if we're in edit mode and load game data
@@ -103,11 +103,14 @@ const AddGames = () => {
             setImagePreviews(prev => ({ ...prev, coverImage: game.image }));
           }
           if (game.screenshots?.length) {
-            const screenshotPreviews = [null, null, null, null];
-            game.screenshots.forEach((url, index) => {
-              if (index < 4) screenshotPreviews[index] = url;
+            // Initialize a fixed-size array of 10 slots, fill existing screenshots
+            const screenshotPreviews = new Array(10).fill(null);
+            game.screenshots.slice(0, 10).forEach((screenshot, index) => {
+              screenshotPreviews[index] = screenshot;
             });
             setImagePreviews(prev => ({ ...prev, screenshots: screenshotPreviews }));
+            // Initialize file array to match preview structure
+            setImageFiles(prev => ({ ...prev, screenshots: new Array(10).fill(null) }));
           }
         } catch (error) {
           console.error('Failed to load game:', error);
@@ -158,11 +161,14 @@ const AddGames = () => {
             setImagePreviews(prev => ({ ...prev, coverImage: game.image }));
           }
           if (game.screenshots?.length) {
-            const screenshotPreviews = [null, null, null, null];
-            game.screenshots.forEach((url, index) => {
-              if (index < 4) screenshotPreviews[index] = url;
+            // Initialize a fixed-size array of 10 slots, fill existing screenshots
+            const screenshotPreviews = new Array(10).fill(null);
+            game.screenshots.slice(0, 10).forEach((screenshot, index) => {
+              screenshotPreviews[index] = screenshot;
             });
             setImagePreviews(prev => ({ ...prev, screenshots: screenshotPreviews }));
+            // Initialize file array to match preview structure
+            setImageFiles(prev => ({ ...prev, screenshots: new Array(10).fill(null) }));
           }
         }
       }
@@ -197,7 +203,15 @@ const AddGames = () => {
       };
       reader.readAsDataURL(file);
     } else if (type === 'screenshot') {
+      if (index === null) return;
+      if (index > 9) {
+        addToast('Maximum of 10 screenshots allowed', 'error');
+        return;
+      }
+
       const newScreenshots = [...imageFiles.screenshots];
+      // Ensure array is large enough
+      while (newScreenshots.length <= index) newScreenshots.push(null);
       newScreenshots[index] = file;
       setImageFiles(prev => ({ ...prev, screenshots: newScreenshots }));
 
@@ -205,6 +219,7 @@ const AddGames = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const newPreviews = [...imagePreviews.screenshots];
+        while (newPreviews.length <= index) newPreviews.push(null);
         newPreviews[index] = e.target.result;
         setImagePreviews(prev => ({ ...prev, screenshots: newPreviews }));
       };
@@ -217,14 +232,30 @@ const AddGames = () => {
       setImageFiles(prev => ({ ...prev, coverImage: null }));
       setImagePreviews(prev => ({ ...prev, coverImage: null }));
     } else if (type === 'screenshot') {
+      if (index === null) return;
+      
+      // Instead of splice, set the specific index to null to maintain array structure
       const newScreenshots = [...imageFiles.screenshots];
-      newScreenshots[index] = null;
-      setImageFiles(prev => ({ ...prev, screenshots: newScreenshots }));
-
       const newPreviews = [...imagePreviews.screenshots];
-      newPreviews[index] = null;
+      
+      if (index < newScreenshots.length) newScreenshots[index] = null;
+      if (index < newPreviews.length) newPreviews[index] = null;
+      
+      setImageFiles(prev => ({ ...prev, screenshots: newScreenshots }));
       setImagePreviews(prev => ({ ...prev, screenshots: newPreviews }));
     }
+  };
+
+  const addScreenshotSlot = () => {
+    const currentLength = imagePreviews.screenshots.length;
+    if (currentLength >= 10) {
+      addToast('Maximum of 10 screenshots reached', 'error');
+      return;
+    }
+    
+    // Add a new null slot to the end
+    setImagePreviews(prev => ({ ...prev, screenshots: [...prev.screenshots, null] }));
+    setImageFiles(prev => ({ ...prev, screenshots: [...prev.screenshots, null] }));
   };
 
   const handleSubmit = async (e) => {
@@ -258,7 +289,7 @@ const AddGames = () => {
             formData.append('coverImage', imageFiles.coverImage);
           }
 
-          // Add screenshots if selected
+          // Add screenshots - preserve index mapping for updates
           imageFiles.screenshots.forEach((file, index) => {
             if (file) {
               console.log(`Adding screenshot ${index} for edit:`, file);
@@ -303,7 +334,7 @@ const AddGames = () => {
           formData.append('coverImage', imageFiles.coverImage);
         }
 
-        // Add screenshots
+        // Add screenshots - preserve index mapping
         imageFiles.screenshots.forEach((file, index) => {
           if (file) {
             console.log(`Adding screenshot ${index}:`, file);
@@ -615,14 +646,14 @@ const AddGames = () => {
 
                 {/* Screenshots */}
                 <div>
-                  <label className="block text-white/70 text-sm font-medium mb-2">Screenshots (up to 4)</label>
+                  <label className="block text-white/70 text-sm font-medium mb-2">Screenshots (up to 10)</label>
                   <div className="grid grid-cols-2 gap-4">
-                    {[0, 1, 2, 3].map((index) => (
+                    {imagePreviews.screenshots.map((preview, index) => (
                       <div key={index} className="border-2 border-dashed border-neutral-600 rounded-lg p-2">
-                        {imagePreviews.screenshots[index] ? (
+                        {preview ? (
                           <div className="relative">
                             <img 
-                              src={imagePreviews.screenshots[index]} 
+                              src={preview} 
                               alt={`Screenshot ${index + 1}`} 
                               className="w-full h-24 object-cover rounded"
                             />
@@ -656,6 +687,15 @@ const AddGames = () => {
                         )}
                       </div>
                     ))}
+                    {imagePreviews.screenshots.length < 10 && (
+                      <button
+                        type="button"
+                        onClick={addScreenshotSlot}
+                        className="border-2 border-dashed border-neutral-600 rounded-lg p-2 h-24 flex items-center justify-center text-neutral-400 hover:bg-neutral-700"
+                      >
+                        + Add another screenshot
+                      </button>
+                    )}
                   </div>
                 </div>
 

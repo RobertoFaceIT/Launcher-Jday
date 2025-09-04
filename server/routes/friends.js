@@ -56,6 +56,12 @@ router.post('/send-request', authMiddleware, [
 
     await friendRequest.save();
 
+    // Notify receiver via sockets
+    try {
+      const io = req.app.get('io');
+      io.to(`user:${targetUser._id.toString()}`).emit('friends:requests:update', { type: 'incoming' });
+    } catch {}
+
     res.status(201).json({
       message: 'Friend request sent successfully',
       request: {
@@ -119,6 +125,15 @@ router.post('/respond', authMiddleware, [
 
     const message = accept ? 'Friend request accepted' : 'Friend request declined';
     
+    // Notify both users to refresh
+    try {
+      const io = req.app.get('io');
+      io.to(`user:${friendRequest.requester._id.toString()}`).emit('friends:update');
+      io.to(`user:${friendRequest.receiver.toString()}`).emit('friends:update');
+      io.to(`user:${friendRequest.receiver.toString()}`).emit('friends:requests:update', { type: 'incoming' });
+      io.to(`user:${friendRequest.requester._id.toString()}`).emit('friends:requests:update', { type: 'outgoing' });
+    } catch {}
+
     res.json({
       message,
       request: {
@@ -224,6 +239,13 @@ router.delete('/:friendshipId', authMiddleware, async (req, res) => {
     }
 
     await Friend.findByIdAndDelete(friendshipId);
+
+    // Notify both users
+    try {
+      const io = req.app.get('io');
+      io.to(`user:${friendship.requester.toString()}`).emit('friends:update');
+      io.to(`user:${friendship.receiver.toString()}`).emit('friends:update');
+    } catch {}
 
     res.json({ message: 'Friend removed successfully' });
   } catch (error) {

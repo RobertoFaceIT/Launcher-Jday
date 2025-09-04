@@ -10,6 +10,9 @@ export default function GameDetails() {
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeShot, setActiveShot] = useState(0);
+  const [modalImage, setModalImage] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -83,6 +86,30 @@ export default function GameDetails() {
     }
   };
 
+  const openImageModal = (imageUrl) => {
+    setModalImage(imageUrl);
+    setIsModalOpen(true);
+  };
+
+  const closeImageModal = () => {
+    setModalImage(null);
+    setIsModalOpen(false);
+  };
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        closeImageModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isModalOpen]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -147,7 +174,8 @@ export default function GameDetails() {
             <img
               src={game.image}
               alt={game.title}
-              className="w-full rounded-lg shadow-lg"
+              className="w-full rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => openImageModal(game.image)}
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'flex';
@@ -259,47 +287,102 @@ export default function GameDetails() {
         </div>
       </div>
 
-      {/* Screenshots */}
+      {/* Screenshots - Carousel */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold mb-4">Screenshots</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {game.screenshots && game.screenshots.length > 0 ? (
-            game.screenshots.map((screenshot, index) => (
-              <div key={index} className="relative">
-                {screenshot ? (
-                  <img
-                    src={screenshot}
-                    alt={`Screenshot ${index + 1}`}
-                    className="w-full rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <div 
-                  className="w-full h-32 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg shadow flex items-center justify-center text-white/50"
-                  style={{ display: screenshot ? 'none' : 'flex' }}
-                >
-                  <div className="text-center">
-                    <div className="text-2xl mb-1">📷</div>
-                    <div className="text-xs">Screenshot {index + 1}</div>
-                  </div>
+        {game.screenshots && game.screenshots.length > 0 ? (
+          <div>
+            <div className="relative w-full h-72 bg-white/5 rounded-lg overflow-hidden">
+              {/* Active image */}
+              {game.screenshots[activeShot] ? (
+                <img
+                  src={game.screenshots[activeShot]}
+                  alt={`Screenshot ${activeShot + 1}`}
+                  className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => openImageModal(game.screenshots[activeShot])}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div
+                className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-white/50"
+                style={{ display: game.screenshots[activeShot] ? 'none' : 'flex' }}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">📷</div>
+                  <div className="text-xs">Screenshot {activeShot + 1}</div>
                 </div>
               </div>
-            ))
-          ) : (
-            // Default placeholders if no screenshots
-            [...Array(4)].map((_, index) => (
+
+              {/* Prev/Next Controls */}
+              {game.screenshots.length > 1 && (
+                <>
+                  <button
+                    aria-label="Previous screenshot"
+                    onClick={() => setActiveShot((prev) => (prev - 1 + game.screenshots.length) % game.screenshots.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-9 h-9 flex items-center justify-center"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+                  <button
+                    aria-label="Next screenshot"
+                    onClick={() => setActiveShot((prev) => (prev + 1) % game.screenshots.length)}
+                    className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-9 h-9 flex items-center justify-center"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnails */}
+            {game.screenshots.length > 1 && (
+              <div className="mt-3 grid grid-cols-4 md:grid-cols-8 gap-2">
+                {game.screenshots.slice(0, 8).map((shot, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveShot(idx)}
+                    onDoubleClick={() => openImageModal(shot)}
+                    className={`relative h-16 rounded overflow-hidden border ${activeShot === idx ? 'border-blue-500' : 'border-white/10'} hover:border-blue-300 transition-colors`}
+                  >
+                    {shot ? (
+                      <img src={shot} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-white/5 flex items-center justify-center text-white/40">📷</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Dots */}
+            {game.screenshots.length > 1 && (
+              <div className="mt-3 flex justify-center gap-2">
+                {game.screenshots.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveShot(idx)}
+                    className={`w-2.5 h-2.5 rounded-full ${activeShot === idx ? 'bg-blue-500' : 'bg-white/20'}`}
+                    aria-label={`Go to screenshot ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, index) => (
               <div key={index} className="w-full h-32 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg shadow flex items-center justify-center text-white/50">
                 <div className="text-center">
                   <div className="text-2xl mb-1">📷</div>
                   <div className="text-xs">Screenshot {index + 1}</div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Features */}
@@ -343,6 +426,36 @@ export default function GameDetails() {
           </div>
         </div>
       </div>
+
+      {/* Image Modal */}
+      {isModalOpen && modalImage && (
+        <div 
+          className="fixed inset-0 bg-gray-600/75 flex items-center justify-center z-50 p-4"
+          onClick={closeImageModal}
+        >
+          <div 
+            className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeImageModal}
+              className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold transition-colors"
+              aria-label="Close modal"
+            >
+              ×
+            </button>
+            
+            {/* Modal image with fixed dimensions */}
+            <img
+              src={modalImage}
+              alt="Full size image"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              style={{ width: 'auto', height: 'auto', maxWidth: '1200px', maxHeight: '800px' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

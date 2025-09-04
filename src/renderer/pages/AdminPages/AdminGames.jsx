@@ -153,7 +153,14 @@ const AdminGames = () => {
     try {
       const isFeatured = game.rating >= 4.5;
       await api.patch(`/admin/games/${game._id}/visibility`, { featured: !isFeatured });
+      // Optimistic UI update so button/badge reflect immediately
+      setGames(prev => prev.map(g => 
+        g._id === game._id 
+          ? { ...g, rating: !isFeatured ? 4.5 : 3.0 }
+          : g
+      ));
       showToast(`Game ${!isFeatured ? 'featured' : 'unfeatured'} successfully`, 'success');
+      // Refresh in background to ensure state is in sync with server
       fetchGames(pagination.currentPage, searchTerm);
     } catch (error) {
       console.error('Failed to toggle featured status:', error);
@@ -227,10 +234,10 @@ const AdminGames = () => {
         </div>
 
         {/* Games Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 mb-8">
           {games.map((game) => (
-            <div key={game._id} className="bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden">
-              <div className="h-48 bg-neutral-700 relative">
+            <div key={game._id} className="bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden h-[540px] flex flex-col">
+              <div className="h-56 bg-neutral-700 relative flex-shrink-0">
                 {game.image || game.coverImage ? (
                   <img 
                     src={game.image || game.coverImage} 
@@ -243,25 +250,25 @@ const AdminGames = () => {
                   </div>
                 )}
                 {game.rating >= 4.5 && (
-                  <div className="absolute top-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
+                  <div className="absolute top-2 right-4 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
                     FEATURED
                   </div>
                 )}
               </div>
-              <div className="p-4">
-                <h3 className="text-white font-semibold mb-2 truncate">{game.title}</h3>
-                <p className="text-white/70 text-sm mb-2 line-clamp-2">{game.description}</p>
-                <div className="flex items-center justify-between mb-3">
+              <div className="p-5 flex-1 flex flex-col gap-2">
+                <h3 className="text-white font-semibold truncate text-base h-[28px]">{game.title}</h3>
+                <p className="text-white/70 text-sm line-clamp-3 h-[66px]">{game.description}</p>
+                <div className="flex items-center justify-between h-[28px]">
                   <span className="text-green-400 font-bold">
                     ${game.price?.toFixed(2) || '0.00'}
                   </span>
-                  <span className="text-white/50 text-sm">{Array.isArray(game.genre) ? game.genre.join(', ') : game.genre}</span>
+                  <span className="text-white/50 text-sm line-clamp-1">{Array.isArray(game.genre) ? game.genre.join(', ') : game.genre}</span>
                 </div>
-                <div className="text-white/50 text-xs mb-3">
-                  <div>Developer: {game.developer}</div>
-                  <div>Publisher: {game.publisher}</div>
+                <div className="text-white/50 text-xs space-y-1 h-[40px]">
+                  <div className="truncate">Developer: {game.developer}</div>
+                  <div className="truncate">Publisher: {game.publisher}</div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3 mt-auto h-[40px]">
                   <button
                     onClick={() => handleEditGame(game)}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"

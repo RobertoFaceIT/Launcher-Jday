@@ -99,4 +99,12 @@ export const gamesAPI = {
   }),
 };
 
+// Chat API
+export const chatAPI = {
+  getMessages: (friendshipId, params = {}) => api.get(`/chat/${friendshipId}/messages`, { params }),
+  sendMessage: (friendshipId, text) => api.post(`/chat/${friendshipId}/messages`, { text }),
+  markRead: (friendshipId, upToMessageId) => api.post(`/chat/${friendshipId}/read`, { upToMessageId }),
+  getUnreadCounts: () => api.get('/chat/unread/counts'),
+};
+
 export default api;

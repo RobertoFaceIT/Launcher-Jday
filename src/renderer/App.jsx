@@ -3,9 +3,11 @@ import { useState, useRef, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { OnlineStatusProvider } from './context/OnlineStatusContext';
+import { ChatProvider } from './context/ChatContext';
 import { ToastContainer } from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
+import ChatManager from './components/ChatManager';
 import Store from './pages/Store.jsx';
 import Library from './pages/Library.jsx';
 import Profile from './pages/Profile.jsx';
@@ -155,9 +157,6 @@ const AppContent = () => {
             <NavBtn to="/">Store</NavBtn>
             <NavBtn to="/library">Library</NavBtn>
             <NavBtn to="/friends">Friends</NavBtn>
-            {user?.role === 'admin' && (
-              <NavBtn to="/admin">Admin</NavBtn>
-            )}
           </nav>
           <div className="pl-4 border-l border-white/20">
             <UserDropdown user={user} logout={logout} />
@@ -220,10 +219,13 @@ export default function App() {
     <HashRouter>
       <ToastProvider>
         <AuthProvider>
-          <OnlineStatusProvider>
-            <AppContent />
-            <ToastContainer />
-          </OnlineStatusProvider>
+          <ChatProvider>
+            <OnlineStatusProvider>
+              <AppContent />
+              <ToastContainer />
+              <ChatManager />
+            </OnlineStatusProvider>
+          </ChatProvider>
         </AuthProvider>
       </ToastProvider>
     </HashRouter>

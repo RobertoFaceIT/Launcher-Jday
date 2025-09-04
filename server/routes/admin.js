@@ -371,7 +371,13 @@ router.post('/games', (req, res, next) => {
     { name: 'screenshot0', maxCount: 1 },
     { name: 'screenshot1', maxCount: 1 },
     { name: 'screenshot2', maxCount: 1 },
-    { name: 'screenshot3', maxCount: 1 }
+    { name: 'screenshot3', maxCount: 1 },
+    { name: 'screenshot4', maxCount: 1 },
+    { name: 'screenshot5', maxCount: 1 },
+    { name: 'screenshot6', maxCount: 1 },
+    { name: 'screenshot7', maxCount: 1 },
+    { name: 'screenshot8', maxCount: 1 },
+    { name: 'screenshot9', maxCount: 1 }
   ])(req, res, (error) => {
     if (error) {
       console.error('Multer error:', error);
@@ -408,8 +414,8 @@ router.post('/games', (req, res, next) => {
         imageUrls.coverImage = `${req.protocol}://${req.get('host')}/uploads/games/${file.filename}`;
       }
 
-      // Handle screenshots
-      for (let i = 0; i < 4; i++) {
+      // Handle screenshots (up to 10)
+      for (let i = 0; i < 10; i++) {
         const fieldName = `screenshot${i}`;
         if (req.files[fieldName] && req.files[fieldName][0]) {
           const file = req.files[fieldName][0];
@@ -492,7 +498,13 @@ router.put('/games/:id', (req, res, next) => {
       { name: 'screenshot0', maxCount: 1 },
       { name: 'screenshot1', maxCount: 1 },
       { name: 'screenshot2', maxCount: 1 },
-      { name: 'screenshot3', maxCount: 1 }
+      { name: 'screenshot3', maxCount: 1 },
+      { name: 'screenshot4', maxCount: 1 },
+      { name: 'screenshot5', maxCount: 1 },
+      { name: 'screenshot6', maxCount: 1 },
+      { name: 'screenshot7', maxCount: 1 },
+      { name: 'screenshot8', maxCount: 1 },
+      { name: 'screenshot9', maxCount: 1 }
     ])(req, res, (error) => {
       if (error) {
         console.error('Multer error in update:', error);
@@ -582,20 +594,31 @@ router.put('/games/:id', (req, res, next) => {
         updateData.image = `${req.protocol}://${req.get('host')}/uploads/games/${file.filename}`;
       }
 
-      // Handle screenshots
-      const newScreenshots = [];
-      for (let i = 0; i < 4; i++) {
+      // Handle screenshots (up to 10) - replace/update specific slots
+      const existingScreenshots = Array.isArray(updateData.screenshots) ? [...updateData.screenshots] : [];
+      let hasNewScreenshots = false;
+
+      for (let i = 0; i < 10; i++) {
         const fieldName = `screenshot${i}`;
         if (req.files[fieldName] && req.files[fieldName][0]) {
           const file = req.files[fieldName][0];
           console.log(`New screenshot ${i} file:`, file);
-          newScreenshots.push(`${req.protocol}://${req.get('host')}/uploads/screenshots/${file.filename}`);
+          const newUrl = `${req.protocol}://${req.get('host')}/uploads/screenshots/${file.filename}`;
+          
+          // Ensure array is large enough
+          while (existingScreenshots.length <= i) {
+            existingScreenshots.push(null);
+          }
+          
+          // Replace the screenshot at this specific index
+          existingScreenshots[i] = newUrl;
+          hasNewScreenshots = true;
         }
       }
 
-      // Only update screenshots if we have new ones
-      if (newScreenshots.length > 0) {
-        updateData.screenshots = newScreenshots;
+      if (hasNewScreenshots) {
+        // Remove any null/empty values from the end while preserving structure
+        updateData.screenshots = existingScreenshots.slice(0, 10);
       }
     }
 

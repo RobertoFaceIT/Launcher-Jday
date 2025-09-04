@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useRef } from 'react';
 import { friendsAPI, usersAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useOnlineStatus } from '../context/OnlineStatusContext';
 import EmptyState from '../components/EmptyState';
+import { useChat } from '../context/ChatContext';
 
 // Constants
 const TABS = {
@@ -108,7 +110,7 @@ const UserCard = ({ user, actions, onClick, isClickable = false }) => {
 };
 
 // Friend Profile Modal Component
-const FriendProfileModal = ({ friend, onClose, onRemove }) => {
+const FriendProfileModal = ({ friend, onClose, onRemove, onOpenChat }) => {
   const { getStatusDisplay } = useOnlineStatus();
   
   useEffect(() => {
@@ -126,6 +128,11 @@ const FriendProfileModal = ({ friend, onClose, onRemove }) => {
 
   const handleRemove = () => {
     onRemove(friend.friendshipId, friend.username);
+    onClose();
+  };
+
+  const handleOpenChat = () => {
+    onOpenChat(friend);
     onClose();
   };
 
@@ -199,6 +206,12 @@ const FriendProfileModal = ({ friend, onClose, onRemove }) => {
             Close
           </button>
           <button
+            onClick={handleOpenChat}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          >
+            Chat
+          </button>
+          <button
             onClick={handleRemove}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
           >
@@ -246,9 +259,27 @@ export default function Friends() {
   const [loading, setLoading] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const pollingIntervalRef = useRef(null);
 
   // Hooks
   const { success, error } = useToast();
+  const { unreadCounts, on, connected, messagesByThread } = useChat();
+  
+  // Debug unread counts changes
+  useEffect(() => {
+    console.log('👥 Friends: Unread counts updated:', unreadCounts);
+  }, [unreadCounts]);
+
+  // Open chat using global chat manager
+  const openChatWindow = useCallback((friend) => {
+    if (window.__openChat) {
+      // Cache friend information
+      if (window.__cacheFriend) {
+        window.__cacheFriend(friend.friendshipId, friend);
+      }
+      window.__openChat(friend, friend.friendshipId);
+    }
+  }, []);
 
   // Data Loading Functions
   const loadFriends = useCallback(async () => {
@@ -350,16 +381,64 @@ export default function Friends() {
     }
   }, [success, error, loadFriends]);
 
-  // Initial Data Loading
+  // Initial Data Loading (only once on mount)
   useEffect(() => {
-    const loadInitialData = async () => {
+    let mounted = true;
+    (async () => {
       setInitialLoading(true);
       await Promise.all([loadFriends(), loadFriendRequests()]);
-      setInitialLoading(false);
+      if (mounted) setInitialLoading(false);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Realtime updates via sockets (replace polling)
+  useEffect(() => {
+    const refreshAll = async () => {
+      await Promise.all([loadFriends(), loadFriendRequests()]);
     };
-    
-    loadInitialData();
-  }, [loadFriends, loadFriendRequests]);
+
+    // Initial refresh on mount
+    refreshAll();
+
+    // Subscribe to socket events
+    const handleFriendsUpdate = () => loadFriends();
+    const handleRequestsUpdate = () => loadFriendRequests();
+    const cleanupFriends = on ? on('friends:update', handleFriendsUpdate) : window.__chatOn?.('friends:update', handleFriendsUpdate);
+    const cleanupReqIn = on ? on('friends:requests:update', handleRequestsUpdate) : window.__chatOn?.('friends:requests:update', handleRequestsUpdate);
+    // Apply presence deltas locally instead of refetching
+    const handlePresence = ({ userId, isOnline, lastSeen }) => {
+      setFriends(prev => prev.map(f => (
+        String(f.id) === String(userId)
+          ? { ...f, isOnline: !!isOnline, lastSeen: lastSeen || f.lastSeen }
+          : f
+      )));
+    };
+    const cleanupPresence = on ? on('presence:update', handlePresence) : window.__chatOn?.('presence:update', handlePresence);
+
+    // Optional fallback refresh on focus/visibility only if not connected
+    let handleFocus, handleVisibilityChange;
+    if (!connected) {
+      handleFocus = () => { refreshAll(); };
+      handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          refreshAll();
+        }
+      };
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      if (typeof cleanupFriends === 'function') cleanupFriends();
+      if (typeof cleanupReqIn === 'function') cleanupReqIn();
+      if (typeof cleanupPresence === 'function') cleanupPresence();
+      if (!connected) {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [loadFriends, loadFriendRequests, on, connected]);
 
   // Render Functions
   const renderFriendsList = () => {
@@ -392,13 +471,20 @@ export default function Friends() {
             isClickable={true}
             onClick={handleFriendClick}
             actions={
-              <ActionButton
-                variant="danger"
-                onClick={() => removeFriend(friend.friendshipId, friend.username)}
-                disabled={loading}
-              >
-                Remove
-              </ActionButton>
+              <>
+                {Number(unreadCounts[String(friend.friendshipId)] || 0) > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-xs font-semibold">
+                    {unreadCounts[String(friend.friendshipId)]}
+                  </span>
+                )}
+                <ActionButton
+                  variant="danger"
+                  onClick={() => removeFriend(friend.friendshipId, friend.username)}
+                  disabled={loading}
+                >
+                  Remove
+                </ActionButton>
+              </>
             }
           />
         ))}
@@ -586,6 +672,7 @@ export default function Friends() {
           friend={selectedFriend} 
           onClose={() => setSelectedFriend(null)}
           onRemove={removeFriend}
+          onOpenChat={openChatWindow}
         />
       )}
     </div>

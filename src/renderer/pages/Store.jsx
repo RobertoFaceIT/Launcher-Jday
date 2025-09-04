@@ -168,7 +168,7 @@ export default function Store() {
                                 placeholder="Search games..."
                                 value={searchInput}
                                 onChange={(e) => handleSearchChange(e.target.value)}
-                                className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"  style={{backgroundColor: 'black'}}
+                                className="w-full px-6 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"  style={{backgroundColor: 'black'}}
                             />
                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white/70">
                                 {searchLoading ? (
@@ -241,76 +241,76 @@ export default function Store() {
                 </div>
             ) : (
                 <>
-                    <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div className="grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-10">
                         {games.map((game) => (
                             <div 
                                 key={game._id} 
-                                className="bg-white/5 rounded-lg overflow-hidden shadow hover:shadow-lg transition cursor-pointer transform hover:scale-105"
+                                className="group bg-neutral-800 border border-neutral-700 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-transform duration-200 cursor-pointer hover:-translate-y-1 h-[540px] flex flex-col"
                                 onClick={() => handleGameClick(game._id)}
                             >
-                                <div className="relative">
+                                <div className="relative h-64 flex-shrink-0 border-b border-white/10">
                                     {game.image ? (
                                         <img 
                                             src={game.image} 
                                             alt={game.title} 
-                                            className="w-full h-48 object-cover"
+                                            className="w-full h-full object-cover"
                                             onError={(e) => {
-                                                // Replace with placeholder div
                                                 e.target.style.display = 'none';
                                                 e.target.nextSibling.style.display = 'flex';
                                             }}
                                         />
                                     ) : null}
                                     <div 
-                                        className="w-full h-48 bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-white/70"
+                                        className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-white/70"
                                         style={{ display: game.image ? 'none' : 'flex' }}
                                     >
                                         <div className="text-center">
-                                            <div className="text-4xl mb-2">🎮</div>
+                                            <div className="text-5xl mb-2">🎮</div>
                                             <div className="text-sm">Game Image</div>
                                         </div>
                                     </div>
+                                    {/* Top badges */}
+                                    <div className="absolute top-3 left-3 bg-black backdrop-blur px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                                        ⭐ {game.rating.toFixed(1)}
+                                    </div>
                                     {game.discount > 0 && (
-                                        <div className="absolute top-2 right-3 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                                        <div className="absolute top-3 right-3 bg-green-600 text-white text-xs px-2 py-1 rounded">
                                             -{game.discount}%
                                         </div>
                                     )}
-                                    {/* Rating Badge */}
-                                    <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                        ⭐ {game.rating.toFixed(1)}
-                                    </div>
+                                    {/* Subtle gradient for polish */}
+                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/40 to-transparent" />
                                 </div>
-                                <div className="p-4">
-                                    {/* Add gap between rating and title */}
-                                    <div className="h-2" />
-                                    <h2 className="text-lg font-semibold mb-2 line-clamp-1">{game.title}</h2>
-                                    <p className="text-sm text-white/70 mb-3 line-clamp-2">{game.description}</p>
-                                    {/* Add gap between description and genre tags */}
-                                    <div className="mb-4" />
+                                <div className="p-5 flex-1 flex flex-col gap-4">
+                                    {/* Title prominently at top of content */}
+                                    <h2 className="text-lg font-bold tracking-wide text-white line-clamp-1">{game.title}</h2>
+                                    <p className="text-sm text-white/70 line-clamp-3 h-[66px]">{game.description}</p>
+                                    {/* Divider */}
+                                    <div className="border-t border-white/10" />
                                     {/* Genre Tags */}
-                                    <div className="flex flex-wrap gap-1 mb-3">
-                                        {game.genre.slice(0, 2).map((genre, index) => (
+                                    <div className="flex flex-wrap gap-2 h-[32px] overflow-hidden">
+                                        {game.genre.slice(0, 3).map((genre, index) => (
                                             <span 
                                                 key={index}
-                                                className="text-xs bg-white/10 px-2 py-1 rounded"
+                                                className="text-xs bg-white/10 border border-white/10 px-2 py-1 rounded-full"
                                             >
                                                 {genre}
                                             </span>
                                         ))}
-                                        {game.genre.length > 2 && (
+                                        {game.genre.length > 3 && (
                                             <span className="text-xs text-white/50">
-                                                +{game.genre.length - 2} more
+                                                +{game.genre.length - 3} more
                                             </span>
                                         )}
                                     </div>
-                                    {/* Add gap between genre tags and price */}
-                                    <div className="mb-4" />
-                                    {/* Price */}
-                                    <div className="flex items-center justify-between">
+                                    {/* Divider */}
+                                    <div className="border-t border-white/10" />
+                                    {/* Price + CTA */}
+                                    <div className="mt-auto flex items-center justify-between">
                                         <div>
                                             {game.discount > 0 ? (
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-white/70 line-through text-sm">
+                                                    <span className="text-white/60 line-through text-sm" style={{ textDecoration: 'line-through' }}>
                                                         ${game.originalPrice.toFixed(2)}
                                                     </span>
                                                     <span className="text-green-400 font-bold">
@@ -324,13 +324,13 @@ export default function Store() {
                                             )}
                                         </div>
                                         <button 
-                                            className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-sm transition-colors"
+                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm transition-colors border border-white/10"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleGameClick(game._id);
                                             }}
                                         >
-                                            View
+                                            View Details
                                         </button>
                                     </div>
                                 </div>
