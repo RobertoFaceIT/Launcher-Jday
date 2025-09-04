@@ -5,7 +5,12 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 
+// Load environment variables from .env.main
+require('dotenv').config({ path: path.join(__dirname, '.env.main') });
+
 const isDev = !app.isPackaged;
+const BACKEND_HOST = process.env.BACKEND_HOST || '192.168.22.19';
+const BACKEND_PORT = process.env.BACKEND_PORT || 3000;
 
 // Get app directories
 function getAppPaths() {
@@ -126,20 +131,22 @@ ipcMain.handle('download-game-to-library', async (event, { gameId, fileName, tok
     const filePath = path.join(paths.library, fileName);
     
     console.log('Starting download to:', filePath);
+    console.log('Backend Host:', BACKEND_HOST);
+    console.log('Backend Port:', BACKEND_PORT);
     console.log('Download URL:', `/api/uploads/download-game/${gameId}`);
     console.log('Token provided:', !!token);
     
     // Create download stream
     return new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'localhost',
-        port: 3000,
-        path: `/api/uploads/download-game/${gameId}`,
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      };
+    const options = {
+      hostname: BACKEND_HOST,
+      port: BACKEND_PORT,
+      path: `/api/uploads/download-game/${gameId}`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    };
 
       console.log('Making request with options:', options);
 

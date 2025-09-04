@@ -41,7 +41,7 @@ export const ChatProvider = ({ children }) => {
     }
 
     const token = localStorage.getItem('authToken');
-    const socket = io('http://localhost:3000', {
+    const socket = io(import.meta.env.VITE_API_URL, {
       transports: ['websocket'],
       auth: { token }
     });

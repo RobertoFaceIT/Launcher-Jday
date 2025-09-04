@@ -30,7 +30,7 @@ const server = http.createServer(app);
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'], // Vite dev server and production
+  origin: ['http://192.168.22.19:5173', 'http://192.168.22.161:5173', 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'], // Vite dev server and production
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' })); // Increased limit for base64 avatars
@@ -41,7 +41,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} from ${req.ip || req.connection.remoteAddress}`);
   next();
 });
 
@@ -94,7 +94,7 @@ app.use((error, req, res, next) => {
 // Socket.IO setup with JWT auth
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: ['http://192.168.22.19:5173', 'http://192.168.22.161:5173', 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
     credentials: true
   }
 });
@@ -243,9 +243,10 @@ io.on('connection', (socket) => {
 });
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🌐 Network access: http://192.168.22.19:${PORT}/api/health`);
 });
 
 // Graceful shutdown

@@ -5,6 +5,7 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   root: 'src/renderer',
+  envDir: '../../', // Look for .env files in the project root
   build: {
     outDir: '../../dist',
     emptyOutDir: true

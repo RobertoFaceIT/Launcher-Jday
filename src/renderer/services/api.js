@@ -1,10 +1,21 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+console.log('🔍 All environment variables:', import.meta.env);
+console.log('🔍 VITE_API_URL specifically:', import.meta.env.VITE_API_URL);
+console.log('🔍 NODE_ENV:', import.meta.env.NODE_ENV);
+console.log('🔍 MODE:', import.meta.env.MODE);
+
+// Force the API URL for now
+const FORCED_API_URL = 'http://192.168.22.161:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || FORCED_API_URL;
+const FINAL_BASE_URL = API_BASE_URL + '/api';
+
+console.log('🔗 Final API Base URL:', FINAL_BASE_URL);
+console.log('🔗 Using forced URL:', !import.meta.env.VITE_API_URL);
 
 // Create axios instance
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: FINAL_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,6 +24,7 @@ const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use(
   (config) => {
+    console.log('🚀 Making API request to:', config.baseURL + config.url);
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -20,14 +32,19 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
 // Handle auth errors globally
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API response success:', response.config.url, response.status);
+    return response;
+  },
   (error) => {
+    console.error('❌ API response error:', error.config?.url, error.response?.status, error.message);
     if (error.response?.status === 401) {
       // Token expired or invalid
       localStorage.removeItem('authToken');
