@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { friendsAPI, usersAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useOnlineStatus } from '../context/OnlineStatusContext';
@@ -264,22 +265,17 @@ export default function Friends() {
   // Hooks
   const { success, error } = useToast();
   const { unreadCounts, on, connected, messagesByThread } = useChat();
+  const navigate = useNavigate();
   
   // Debug unread counts changes
   useEffect(() => {
     console.log('👥 Friends: Unread counts updated:', unreadCounts);
   }, [unreadCounts]);
 
-  // Open chat using global chat manager
+  // Navigate to chat page with selected friend
   const openChatWindow = useCallback((friend) => {
-    if (window.__openChat) {
-      // Cache friend information
-      if (window.__cacheFriend) {
-        window.__cacheFriend(friend.friendshipId, friend);
-      }
-      window.__openChat(friend, friend.friendshipId);
-    }
-  }, []);
+    navigate(`/chat?friendshipId=${friend.friendshipId}`);
+  }, [navigate]);
 
   // Data Loading Functions
   const loadFriends = useCallback(async () => {
@@ -472,11 +468,18 @@ export default function Friends() {
             onClick={handleFriendClick}
             actions={
               <>
-                {Number(unreadCounts[String(friend.friendshipId)] || 0) > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-xs font-semibold">
-                    {unreadCounts[String(friend.friendshipId)]}
-                  </span>
-                )}
+                <ActionButton
+                  variant="primary"
+                  onClick={() => openChatWindow(friend)}
+                  disabled={loading}
+                >
+                  💬 Chat
+                  {Number(unreadCounts[String(friend.friendshipId)] || 0) > 0 && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                      {unreadCounts[String(friend.friendshipId)]}
+                    </span>
+                  )}
+                </ActionButton>
                 <ActionButton
                   variant="danger"
                   onClick={() => removeFriend(friend.friendshipId, friend.username)}

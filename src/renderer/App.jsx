@@ -14,6 +14,8 @@ import Library from './pages/Library.jsx';
 import Profile from './pages/Profile.jsx';
 import Settings from './pages/Settings.jsx';
 import Friends from './pages/Friends.jsx';
+import Downloads from './pages/Downloads.jsx';
+import Chat from './pages/Chat.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import GameDetails from './pages/GameDetails.jsx';
@@ -151,7 +153,7 @@ const AppContent = () => {
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white flex flex-col">
-      <div className="flex-1 p-6 pb-20">
+      <div className="flex-1 p-6 pb-24">
         <header className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold">🚀 Real-G Launcher</h1>
           <div className="flex items-center gap-4">
@@ -166,44 +168,85 @@ const AppContent = () => {
           </div>
         </header>
 
-        <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
         <Routes>
-          <Route path="/" element={<Store />} />
-          <Route path="/game/:gameId" element={<GameDetails />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/friends" element={<Friends />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/" element={
+            <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+              <Store />
+            </main>
+          } />
+          <Route path="/game/:gameId" element={
+            <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+              <GameDetails />
+            </main>
+          } />
+          <Route path="/library" element={
+            <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+              <Library />
+            </main>
+          } />
+          <Route path="/friends" element={
+            <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+              <Friends />
+            </main>
+          } />
+          <Route path="/downloads" element={
+            <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+              <Downloads />
+            </main>
+          } />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/profile" element={
+            <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+              <Profile />
+            </main>
+          } />
+          <Route path="/settings" element={
+            <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+              <Settings />
+            </main>
+          } />
           
           {/* Admin Routes */}
           <Route path="/admin" element={
             <ProtectedAdminRoute>
-              <AdminDashboard />
+              <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+                <AdminDashboard />
+              </main>
             </ProtectedAdminRoute>
           } />
           <Route path="/admin/users" element={
             <ProtectedAdminRoute>
-              <AdminUsers />
+              <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+                <AdminUsers />
+              </main>
             </ProtectedAdminRoute>
           } />
           <Route path="/admin/games" element={
             <ProtectedAdminRoute>
-              <AdminGames />
+              <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+                <AdminGames />
+              </main>
             </ProtectedAdminRoute>
           } />
           <Route path="/admin/games/add" element={
             <ProtectedAdminRoute>
-              <AddGames />
+              <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+                <AddGames />
+              </main>
             </ProtectedAdminRoute>
           } />
           <Route path="/admin/games/edit/:id" element={
             <ProtectedAdminRoute>
-              <AddGames />
+              <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+                <AddGames />
+              </main>
             </ProtectedAdminRoute>
           } />
           <Route path="/admin/friend-requests" element={
             <ProtectedAdminRoute>
-              <AdminFriendRequests />
+              <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+                <AdminFriendRequests />
+              </main>
             </ProtectedAdminRoute>
           } />
           
@@ -211,7 +254,6 @@ const AppContent = () => {
           <Route path="/register" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        </main>
       </div>
       <Footer />
     </div>
