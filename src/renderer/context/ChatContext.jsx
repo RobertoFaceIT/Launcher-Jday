@@ -108,24 +108,16 @@ export const ChatProvider = ({ children }) => {
     socket.on('chat:unread:set', handleUnreadSet);
 
     socket.on('chat:delivered', ({ tempId, messageId, createdAt }) => {
-      // Replace optimistic message with real message from server
+      console.log('📤 Message delivered:', { tempId, messageId });
+      // Just update the optimistic message with real ID and remove optimistic flag
       setMessagesByThread(prev => {
         const next = new Map(prev);
-        // Find which thread contains the optimistic message
         for (const [threadId, list] of next.entries()) {
-          const optimisticMsg = list.find(m => m._id === tempId && m.optimistic);
-          if (optimisticMsg) {
-            // Remove optimistic message and add real one
-            const filtered = list.filter(m => m._id !== tempId);
-            const realMessage = { 
-              _id: messageId, 
-              friendshipId: threadId, 
-              senderId: userIdRef.current, 
-              text: optimisticMsg.text, 
-              createdAt, 
-              optimistic: false 
-            };
-            next.set(threadId, [...filtered, realMessage]);
+          const idx = list.findIndex(m => m._id === tempId && m.optimistic);
+          if (idx >= 0) {
+            const updated = [...list];
+            updated[idx] = { ...updated[idx], _id: messageId, createdAt, optimistic: false };
+            next.set(threadId, updated);
             break;
           }
         }
