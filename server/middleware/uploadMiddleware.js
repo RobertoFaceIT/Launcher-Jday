@@ -82,7 +82,7 @@ const uploadGameScreenshots = multer({
 
 // Game file upload middleware for actual game files
 const uploadGameFile = multer({
-  storage: createStorage('gamefiles'),
+  storage: createStorage('GameFiles'),
   ...gameFileConfig
 }).single('gameFile');
 

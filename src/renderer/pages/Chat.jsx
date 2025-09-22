@@ -298,143 +298,145 @@ const Chat = () => {
   };
 
   return (
-    <div className="absolute inset-x-0 top-0 bottom-0 pt-20 pb-24 flex bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 text-white overflow-hidden z-10">
-      {/* Sidebar - Friends List */}
-      <div className="w-80 bg-black/20 backdrop-blur-xl border-r border-white/10 flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b border-white/10 bg-gradient-to-r from-blue-600/20 to-purple-600/20">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              💬 Chats
-            </h1>
-            <button
-              onClick={() => setShowFriendsModal(true)}
-              className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 flex items-center justify-center transition-all duration-200 hover:scale-105 shadow-lg group"
-              title="Start new chat"
-            >
-              <svg className="w-5 h-5 text-white group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </button>
-          </div>
-          
-          {/* Search */}
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent backdrop-blur-sm transition-all duration-200"
-            />
-          </div>
-        </div>
-
-        {/* Friends List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {filteredFriends.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mb-4">
-                <svg className="w-10 h-10 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
-              <p className="text-white/60 text-sm mb-4">Add friends to start chatting!</p>
+    <div className="fixed inset-x-0 top-0 bottom-0 flex bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 text-white overflow-hidden z-10" style={{ top: '120px', bottom: '96px' }}>
+      {/* Main Content Container - Fixed height between header and footer */}
+      <div className="flex flex-1 h-full">
+        {/* Sidebar - Friends List */}
+        <div className="w-80 bg-black/20 backdrop-blur-xl border-r border-white/10 flex flex-col">
+          {/* Header */}
+          <div className="p-6 border-b border-white/10 bg-gradient-to-r from-blue-600/20 to-purple-600/20">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                💬 Chats
+              </h1>
               <button
-                onClick={() => window.location.hash = '#/friends'}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                onClick={() => setShowFriendsModal(true)}
+                className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 flex items-center justify-center transition-all duration-200 hover:scale-105 shadow-lg group"
+                title="Start new chat"
               >
-                Go to Friends
+                <svg className="w-5 h-5 text-white group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
               </button>
             </div>
-          ) : (
-            <div className="p-3 space-y-2">
-              {filteredFriends.map((friend) => {
-                const friendInfo = getFriendInfo(friend);
-                if (!friendInfo) return null;
-                
-                const chatId = friend.friendshipId || friend._id;
-                const lastMessage = getLastMessage(chatId);
-                const unreadCount = unreadCounts[chatId] || 0;
-                const isOnline = isUserOnline(friendInfo._id, friend);
-                const isSelected = selectedChat && (selectedChat._id === friend._id || selectedChat.friendshipId === friend.friendshipId);
+            
+            {/* Search */}
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent backdrop-blur-sm transition-all duration-200"
+              />
+            </div>
+          </div>
 
-                return (
-                  <div
-                    key={friend._id}
-                    onClick={() => handleChatSelect(friend)}
-                    className={`
-                      relative p-4 rounded-xl cursor-pointer transition-all duration-300 group
-                      ${isSelected 
-                        ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 shadow-lg shadow-blue-500/20 border border-blue-500/30 scale-[0.98]' 
-                        : unreadCount > 0
-                        ? 'bg-white/10 hover:bg-white/15 border-l-4 border-blue-500/50'
-                        : 'hover:bg-white/10 bg-white/5 hover:scale-[0.99]'
-                      }
-                    `}
-                  >
-                    {/* Glow effect for selected chat */}
-                    {isSelected && (
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 blur-xl"></div>
-                    )}
-                    
-                    <div className="relative flex items-center gap-3">
-                      {/* Avatar */}
-                      <div className="relative">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden border-2 border-white/20">
-                          {friendInfo.avatar ? (
-                            <img src={friendInfo.avatar} alt={friendInfo.username} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-lg font-bold">{friendInfo.username[0].toUpperCase()}</span>
-                          )}
-                        </div>
-                        {/* Online indicator */}
-                        <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-black ${isOnline ? 'bg-green-400' : 'bg-gray-500'}`}></div>
-                      </div>
+          {/* Friends List */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {filteredFriends.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mb-4">
+                  <svg className="w-10 h-10 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
+                <p className="text-white/60 text-sm mb-4">Add friends to start chatting!</p>
+                <button
+                  onClick={() => window.location.hash = '#/friends'}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  Go to Friends
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 space-y-2">
+                {filteredFriends.map((friend) => {
+                  const friendInfo = getFriendInfo(friend);
+                  if (!friendInfo) return null;
+                  
+                  const chatId = friend.friendshipId || friend._id;
+                  const lastMessage = getLastMessage(chatId);
+                  const unreadCount = unreadCounts[chatId] || 0;
+                  const isOnline = isUserOnline(friendInfo._id, friend);
+                  const isSelected = selectedChat && (selectedChat._id === friend._id || selectedChat.friendshipId === friend.friendshipId);
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className={`text-sm truncate ${unreadCount > 0 ? 'font-bold text-white' : 'font-semibold'}`}>{friendInfo.username}</h3>
-                          {lastMessage && (
-                            <span className="text-xs text-white/60">{formatMessageTime(lastMessage.createdAt)}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-white/70 truncate max-w-[180px]">
-                            {lastMessage ? (
-                              <>
-                                {String(lastMessage.senderId) === String(user?.id) && (
-                                  <span className="text-white/50 mr-1">You: </span>
-                                )}
-                                {lastMessage.text}
-                              </>
+                  return (
+                    <div
+                      key={friend._id}
+                      onClick={() => handleChatSelect(friend)}
+                      className={`
+                        relative p-4 rounded-xl cursor-pointer transition-all duration-300 group
+                        ${isSelected 
+                          ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 shadow-lg shadow-blue-500/20 border border-blue-500/30 scale-[0.98]' 
+                          : unreadCount > 0
+                          ? 'bg-white/10 hover:bg-white/15 border-l-4 border-blue-500/50'
+                          : 'hover:bg-white/10 bg-white/5 hover:scale-[0.99]'
+                        }
+                      `}
+                    >
+                      {/* Glow effect for selected chat */}
+                      {isSelected && (
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 blur-xl"></div>
+                      )}
+                      
+                      <div className="relative flex items-center gap-3">
+                        {/* Avatar */}
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                            {friendInfo.avatar ? (
+                              <img src={friendInfo.avatar} alt={friendInfo.username} className="w-full h-full object-cover" />
                             ) : (
-                              <span className="text-white/50 italic">Start a conversation...</span>
+                              <span className="text-lg font-bold">{friendInfo.username[0].toUpperCase()}</span>
                             )}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full font-bold min-w-[20px] text-center flex-shrink-0">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                          )}
+                          </div>
+                          {/* Online indicator */}
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-black ${isOnline ? 'bg-green-400' : 'bg-gray-500'}`}></div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className={`text-sm truncate ${unreadCount > 0 ? 'font-bold text-white' : 'font-semibold'}`}>{friendInfo.username}</h3>
+                            {lastMessage && (
+                              <span className="text-xs text-white/60">{formatMessageTime(lastMessage.createdAt)}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-white/70 truncate max-w-[180px]">
+                              {lastMessage ? (
+                                <>
+                                  {String(lastMessage.senderId) === String(user?.id) && (
+                                    <span className="text-white/50 mr-1">You: </span>
+                                  )}
+                                  {lastMessage.text}
+                                </>
+                              ) : (
+                                <span className="text-white/50 italic">Start a conversation...</span>
+                              )}
+                            </p>
+                            {unreadCount > 0 && (
+                              <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full font-bold min-w-[20px] text-center flex-shrink-0">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
         {selectedChat ? (
           <>
             {/* Chat Header */}
@@ -689,6 +691,7 @@ const Chat = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Friends Modal */}

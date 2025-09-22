@@ -111,7 +111,7 @@ const UserCard = ({ user, actions, onClick, isClickable = false }) => {
 };
 
 // Friend Profile Modal Component
-const FriendProfileModal = ({ friend, onClose, onRemove, onOpenChat }) => {
+const FriendProfileModal = ({ friend, onClose, onRemove }) => {
   const { getStatusDisplay } = useOnlineStatus();
   
   useEffect(() => {
@@ -205,12 +205,6 @@ const FriendProfileModal = ({ friend, onClose, onRemove, onOpenChat }) => {
             className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium"
           >
             Close
-          </button>
-          <button
-            onClick={handleOpenChat}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-          >
-            Chat
           </button>
           <button
             onClick={handleRemove}
@@ -675,7 +669,6 @@ export default function Friends() {
           friend={selectedFriend} 
           onClose={() => setSelectedFriend(null)}
           onRemove={removeFriend}
-          onOpenChat={openChatWindow}
         />
       )}
     </div>

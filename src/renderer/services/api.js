@@ -114,6 +114,9 @@ export const gamesAPI = {
       ...params 
     } 
   }),
+  downloadGame: (gameId) => api.get(`/uploads/download-game/${gameId}`, { responseType: 'blob' }),
+  markGameInstalled: (gameId, data = {}) => api.post(`/uploads/mark-installed/${gameId}`, data),
+  markGameUninstalled: (gameId) => api.post(`/uploads/mark-uninstalled/${gameId}`),
 };
 
 // Chat API

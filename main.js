@@ -9,24 +9,35 @@ const http = require('http');
 require('dotenv').config({ path: path.join(__dirname, '.env.main') });
 
 const isDev = !app.isPackaged;
-const BACKEND_HOST = process.env.BACKEND_HOST || '192.168.22.19';
+const BACKEND_HOST = process.env.BACKEND_HOST || '192.168.22.161';
 const BACKEND_PORT = process.env.BACKEND_PORT || 3000;
 
 // Get app directories
 function getAppPaths() {
-  const userDataPath = app.getPath('userData');
-  const libraryPath = path.join(userDataPath, 'My Library Games');
-  
-  // Create library directory if it doesn't exist
-  if (!fs.existsSync(libraryPath)) {
-    fs.mkdirSync(libraryPath, { recursive: true });
-    console.log('Created library directory:', libraryPath);
+  try {
+    const userDataPath = app.getPath('userData');
+    const libraryPath = path.join(userDataPath, 'My Library Games');
+    
+    console.log('📁 User data path:', userDataPath);
+    console.log('📁 Library path:', libraryPath);
+    
+    // Create library directory if it doesn't exist
+    if (!fs.existsSync(libraryPath)) {
+      console.log('📁 Creating library directory...');
+      fs.mkdirSync(libraryPath, { recursive: true });
+      console.log('✅ Created library directory:', libraryPath);
+    } else {
+      console.log('✅ Library directory exists:', libraryPath);
+    }
+    
+    return {
+      userData: userDataPath,
+      library: libraryPath
+    };
+  } catch (error) {
+    console.error('❌ Error in getAppPaths:', error);
+    throw error;
   }
-  
-  return {
-    userData: userDataPath,
-    library: libraryPath
-  };
 }
 
 function createWindow() {
@@ -116,19 +127,40 @@ ipcMain.handle('launch-game', async (_evt, gameInfo) => {
 
 // Add handler to get user data path for downloads
 ipcMain.handle('get-user-data-path', () => {
+  console.log('🔧 get-user-data-path handler called');
   return app.getPath('userData');
+});
+
+// Simple test handler
+ipcMain.handle('test-ipc', () => {
+  console.log('🔧 test-ipc handler called');
+  return { success: true, message: 'IPC is working!' };
 });
 
 // Add handler to get app paths
 ipcMain.handle('get-app-paths', () => {
-  return getAppPaths();
+  console.log('🔧 get-app-paths handler called');
+  try {
+    const paths = getAppPaths();
+    console.log('🔧 get-app-paths result:', paths);
+    return paths;
+  } catch (error) {
+    console.error('🔧 get-app-paths error:', error);
+    return { error: error.message };
+  }
 });
 
 // Add handler to download game to library
 ipcMain.handle('download-game-to-library', async (event, { gameId, fileName, token }) => {
+  console.log('📥 Download handler called with:', { gameId, fileName, tokenProvided: !!token });
+  
   try {
+    console.log('📁 Getting app paths...');
     const paths = getAppPaths();
+    console.log('📁 App paths:', paths);
+    
     const filePath = path.join(paths.library, fileName);
+    console.log('📁 Target file path:', filePath);
     
     console.log('Starting download to:', filePath);
     console.log('Backend Host:', BACKEND_HOST);
@@ -137,7 +169,7 @@ ipcMain.handle('download-game-to-library', async (event, { gameId, fileName, tok
     console.log('Token provided:', !!token);
     
     // Create download stream
-    return new Promise((resolve, reject) => {
+    const downloadPromise = new Promise((resolve, reject) => {
     const options = {
       hostname: BACKEND_HOST,
       port: BACKEND_PORT,
@@ -155,9 +187,14 @@ ipcMain.handle('download-game-to-library', async (event, { gameId, fileName, tok
         console.log('Response headers:', res.headers);
         
         if (res.statusCode !== 200) {
-          const errorMsg = `HTTP ${res.statusCode}: ${res.statusMessage}`;
-          console.error('Download failed:', errorMsg);
-          reject(new Error(errorMsg));
+          let errorBody = '';
+          res.on('data', chunk => errorBody += chunk);
+          res.on('end', () => {
+            console.error('Error response body:', errorBody);
+            const errorMsg = `HTTP ${res.statusCode}: ${res.statusMessage}`;
+            console.error('Download failed:', errorMsg);
+            reject(new Error(errorMsg));
+          });
           return;
         }
 
@@ -200,6 +237,14 @@ ipcMain.handle('download-game-to-library', async (event, { gameId, fileName, tok
 
       req.on('error', (error) => {
         console.error('Request error:', error);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          errno: error.errno,
+          syscall: error.syscall,
+          hostname: error.hostname,
+          port: error.port
+        });
         reject(error);
       });
 
@@ -210,8 +255,11 @@ ipcMain.handle('download-game-to-library', async (event, { gameId, fileName, tok
 
       req.end();
     });
+    
+    return await downloadPromise;
   } catch (error) {
     console.error('Download setup error:', error);
+    console.error('Error stack:', error.stack);
     return { success: false, error: error.message };
   }
 });

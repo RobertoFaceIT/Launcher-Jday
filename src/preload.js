@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkGameInstalled: (fileName) => ipcRenderer.invoke('check-game-installed', fileName),
   uninstallGame: (fileName) => ipcRenderer.invoke('uninstall-game', fileName),
   openLibraryFolder: () => ipcRenderer.invoke('open-library-folder'),
+  testIPC: () => ipcRenderer.invoke('test-ipc'),
   
   // Progress events
   onDownloadProgress: (callback) => {

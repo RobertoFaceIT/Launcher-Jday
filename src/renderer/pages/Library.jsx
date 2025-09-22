@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EmptyState from '../components/EmptyState';
-import { usersAPI } from '../services/api';
+import { usersAPI, gamesAPI } from '../services/api';
 
 export default function Library() {
   const [library, setLibrary] = useState([]);
@@ -16,6 +16,20 @@ export default function Library() {
     setLoading(true);
     usersAPI.getLibrary()
       .then(res => {
+        console.log('📚 Library data received:', res.data);
+        console.log('📚 Library games count:', res.data.library?.length || 0);
+        
+        // Log each game entry to see its status
+        res.data.library?.forEach((entry, index) => {
+          console.log(`📚 Game ${index}:`, {
+            id: entry.game?._id,
+            title: entry.game?.title,
+            status: entry.status,
+            installProgress: entry.installProgress,
+            addedAt: entry.addedAt
+          });
+        });
+        
         setLibrary(res.data.library || []);
         setLoading(false);
         
@@ -23,6 +37,7 @@ export default function Library() {
         checkAllGamesInstallation(res.data.library || []);
       })
       .catch(err => {
+        console.error('❌ Failed to load library:', err);
         setError('Failed to load library');
         setLoading(false);
       });
@@ -65,19 +80,36 @@ export default function Library() {
     setInstalledGamesStatus(statusMap);
   };
 
-  // Categorize games by status
+  // Categorize games by status (prioritize backend status)
   const getGameStatus = (entry) => {
     const gameId = entry.game._id;
     const progressData = downloadProgress[gameId];
-    const installStatus = installedGamesStatus[gameId];
+    const localInstallStatus = installedGamesStatus[gameId];
     
+    // Check if currently downloading
     if (progressData && progressData.progress < 100) {
       return 'installing';
-    } else if (installStatus?.installed) {
-      return 'installed';
-    } else {
-      return 'not_installed';
     }
+    
+    // Prioritize backend status from library entry
+    if (entry.status) {
+      switch(entry.status) {
+        case 'installed':
+          return 'installed';
+        case 'installing':
+          return 'installing';
+        case 'not_installed':
+        default:
+          return 'not_installed';
+      }
+    }
+    
+    // Fallback to local status (for backward compatibility)
+    if (localInstallStatus?.installed) {
+      return 'installed';
+    }
+    
+    return 'not_installed';
   };
 
   const installedGames = library.filter(g => getGameStatus(g) === 'installed');
@@ -131,6 +163,18 @@ export default function Library() {
       console.log('Installing game:', game.title);
       console.log('Game data:', game);
       
+      // Check if game is already installed
+      const currentStatus = getGameStatus(entry);
+      if (currentStatus === 'installed') {
+        alert('This game is already installed!');
+        return;
+      }
+      
+      if (currentStatus === 'installing') {
+        alert('This game is currently being installed!');
+        return;
+      }
+      
       // Check if game has a file to download
       if (!game.gameFilePath || !game.gameFileName) {
         if (game.downloadLink) {
@@ -150,43 +194,193 @@ export default function Library() {
 
       console.log('Starting app library download...');
       
-      // Start download using Electron API
+      // For debugging: Test direct download from backend first
       try {
-        const result = await window.electronAPI?.downloadGameToLibrary?.({
-          gameId: game._id,
-          fileName: game.gameFileName,
-          token: token
+        console.log('Testing direct download from backend...');
+        const testResponse = await fetch(`http://192.168.22.161:3000/api/uploads/download-game/${game._id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
+        console.log('Direct download test response:', {
+          status: testResponse.status,
+          statusText: testResponse.statusText,
+          headers: Object.fromEntries(testResponse.headers.entries())
+        });
+        
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          console.error('Direct download failed:', errorText);
+          throw new Error(`Direct download failed: ${testResponse.status} - ${errorText}`);
+        }
+        console.log('✅ Direct download test successful!');
+      } catch (directError) {
+        console.error('❌ Direct download test failed:', directError);
+        throw directError;
+      }
+      
+      // Test IPC connection first
+      console.log('🔗 Testing IPC connection...');
+      try {
+        const testResult = await window.electronAPI?.testIPC?.();
+        console.log('✅ Simple IPC test result:', testResult);
+        
+        const pathsTest = await window.electronAPI?.getAppPaths?.();
+        console.log('✅ IPC getAppPaths result:', pathsTest);
+      } catch (ipcError) {
+        console.error('❌ IPC connection failed:', ipcError);
+        throw new Error('IPC connection failed');
+      }
+      
+      // Check if running in Electron mode
+      if (window.electronAPI && typeof window.electronAPI.downloadGameToLibrary === 'function') {
+        console.log('🚀 Using Electron download mode...');
+        
+        try {
+          const result = await window.electronAPI.downloadGameToLibrary({
+            gameId: game._id,
+            fileName: game.gameFileName,
+            token: token
+          });
 
-        console.log('Download result:', result);
+          console.log('Download result:', result);
 
-        if (result?.success) {
-          console.log('Download completed successfully:', result.message);
+          if (result?.success) {
+            console.log('✅ Electron download completed:', result.message);
+            
+            // Mark as installed in backend
+            try {
+              console.log('📡 Marking game as installed in backend...', {
+                gameId: game._id,
+                filePath: result.filePath,
+                fileSize: game.gameFileSize || 0
+              });
+              
+              const markResponse = await gamesAPI.markGameInstalled(game._id, {
+                filePath: result.filePath,
+                fileSize: game.gameFileSize || 0
+              });
+              
+              console.log('✅ Backend response:', markResponse.data);
+              console.log('✅ Game marked as installed in backend');
+            } catch (backendError) {
+              console.error('⚠️ Failed to mark game as installed in backend:', backendError);
+              console.error('⚠️ Backend error details:', {
+                status: backendError.response?.status,
+                statusText: backendError.response?.statusText,
+                data: backendError.response?.data,
+                message: backendError.message
+              });
+              // Don't fail the whole process if backend update fails
+            }
+            
+            // Update local installation status
+            setInstalledGamesStatus(prev => ({
+              ...prev,
+              [game._id]: { 
+                installed: true, 
+                filePath: result.filePath,
+                fileSize: game.gameFileSize || 0,
+                installDate: new Date()
+              }
+            }));
+            
+            // Clear download progress
+            setDownloadProgress(prev => {
+              const newProgress = { ...prev };
+              delete newProgress[game._id];
+              return newProgress;
+            });
+            
+            // Refresh library to get updated status
+            refreshLibrary();
+            
+          } else {
+            throw new Error(result?.error || 'Electron download failed');
+          }
+        } catch (electronError) {
+          console.error('❌ Electron download error:', electronError);
+          throw electronError;
+        }
+        
+      } else {
+        console.log('🌐 Electron not available, using browser download...');
+        
+        // Fallback: Browser download with link
+        try {
+          const downloadUrl = `http://192.168.22.161:3000/api/uploads/download-game/${game._id}`;
           
-          // Update installation status
+          // Create download link
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = game.gameFileName || `${game.title}.zip`;
+          link.style.display = 'none';
+          
+          // Add authorization header by creating a new request
+          const response = await fetch(downloadUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Download failed: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          link.href = url;
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('✅ Browser download initiated');
+          
+          // Mark as installed in backend
+          try {
+            console.log('📡 Marking browser download as installed in backend...', {
+              gameId: game._id,
+              filePath: 'Downloaded to browser downloads folder',
+              fileSize: game.gameFileSize || 0
+            });
+            
+            const markResponse = await gamesAPI.markGameInstalled(game._id, {
+              filePath: 'Downloaded to browser downloads folder',
+              fileSize: game.gameFileSize || 0
+            });
+            
+            console.log('✅ Backend response:', markResponse.data);
+            console.log('✅ Game marked as installed in backend');
+          } catch (backendError) {
+            console.error('⚠️ Failed to mark game as installed in backend:', backendError);
+            console.error('⚠️ Backend error details:', {
+              status: backendError.response?.status,
+              statusText: backendError.response?.statusText,
+              data: backendError.response?.data,
+              message: backendError.message
+            });
+          }
+          
+          // Update local installation status
           setInstalledGamesStatus(prev => ({
             ...prev,
             [game._id]: { 
               installed: true, 
-              filePath: result.filePath,
+              filePath: 'Downloaded to browser downloads folder',
               fileSize: game.gameFileSize || 0,
               installDate: new Date()
             }
           }));
           
-          // Clear download progress
-          setDownloadProgress(prev => {
-            const newProgress = { ...prev };
-            delete newProgress[game._id];
-            return newProgress;
-          });
+          // Refresh library to get updated status
+          refreshLibrary();
           
-        } else {
-          throw new Error(result?.error || 'Download failed - no success response');
+        } catch (browserError) {
+          console.error('❌ Browser download error:', browserError);
+          throw browserError;
         }
-      } catch (downloadError) {
-        console.error('Download API error:', downloadError);
-        throw new Error(`Download failed: ${downloadError.message}`);
       }
       
     } catch (error) {
@@ -209,21 +403,33 @@ export default function Library() {
       const game = entry.game;
       
       if (game.gameFileName) {
-        // Remove from app library
+        // Remove from app library (Electron)
         const result = await window.electronAPI?.uninstallGame?.(game.gameFileName);
         
         if (result?.success) {
           console.log('Game uninstalled successfully:', result.message);
-          
-          // Update installation status
-          setInstalledGamesStatus(prev => ({
-            ...prev,
-            [game._id]: { installed: false }
-          }));
         } else {
           console.error('Uninstall failed:', result?.error);
         }
       }
+      
+      // Mark as uninstalled in backend
+      try {
+        await gamesAPI.markGameUninstalled(game._id);
+        console.log('✅ Game marked as uninstalled in backend');
+      } catch (backendError) {
+        console.error('⚠️ Failed to mark game as uninstalled in backend:', backendError);
+      }
+      
+      // Update local installation status
+      setInstalledGamesStatus(prev => ({
+        ...prev,
+        [game._id]: { installed: false }
+      }));
+      
+      // Refresh library to get updated status
+      refreshLibrary();
+      
     } catch (error) {
       console.error('Uninstall error:', error);
     }
@@ -249,30 +455,57 @@ export default function Library() {
   };
 
   const handlePause = async (entry) => {
-    // Clear download progress (effectively pausing/canceling the download)
-    setDownloadProgress(prev => {
-      const newProgress = { ...prev };
-      delete newProgress[entry.game._id];
-      return newProgress;
-    });
-  };
-
-  const handleCancel = async (entry) => {
-    // Clear download progress and uninstall if partially downloaded
+    console.log('🛑 Pausing download for:', entry.game.title);
+    
+    // TODO: Implement actual download pause in Electron
+    // For now, just clear the progress display
     setDownloadProgress(prev => {
       const newProgress = { ...prev };
       delete newProgress[entry.game._id];
       return newProgress;
     });
     
-    // Also try to remove any partial files
+    // Try to mark as not_installed in backend
+    try {
+      await gamesAPI.markGameUninstalled(entry.game._id);
+      console.log('✅ Game marked as paused/not_installed in backend');
+    } catch (error) {
+      console.error('⚠️ Failed to update pause status in backend:', error);
+    }
+    
+    refreshLibrary();
+  };
+
+  const handleCancel = async (entry) => {
+    console.log('❌ Cancelling download for:', entry.game.title);
+    
+    // Clear download progress
+    setDownloadProgress(prev => {
+      const newProgress = { ...prev };
+      delete newProgress[entry.game._id];
+      return newProgress;
+    });
+    
+    // Try to remove any partial files (Electron)
     if (entry.game.gameFileName) {
       await window.electronAPI?.uninstallGame?.(entry.game.gameFileName);
-      setInstalledGamesStatus(prev => ({
-        ...prev,
-        [entry.game._id]: { installed: false }
-      }));
     }
+    
+    // Mark as not_installed in backend
+    try {
+      await gamesAPI.markGameUninstalled(entry.game._id);
+      console.log('✅ Game marked as cancelled/not_installed in backend');
+    } catch (error) {
+      console.error('⚠️ Failed to update cancel status in backend:', error);
+    }
+    
+    // Update local status
+    setInstalledGamesStatus(prev => ({
+      ...prev,
+      [entry.game._id]: { installed: false }
+    }));
+    
+    refreshLibrary();
   };
 
   if (loading) return <div className="text-center py-12 text-white/60">Loading library...</div>;

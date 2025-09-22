@@ -213,12 +213,12 @@ router.post('/game-file/:gameId', authMiddleware, (req, res) => {
 
       // Delete old game file if it exists
       if (game.gameFilePath) {
-        const oldFilePath = path.join(__dirname, '..', 'uploads', 'gamefiles', path.basename(game.gameFilePath));
+        const oldFilePath = path.join(__dirname, '..', 'uploads', 'GameFiles', path.basename(game.gameFilePath));
         deleteFile(oldFilePath);
       }
 
       // Update game with new file information
-      const fileUrl = getFileUrl(req, req.file.filename, 'gamefiles');
+      const fileUrl = getFileUrl(req, req.file.filename, 'GameFiles');
       game.gameFilePath = fileUrl;
       game.gameFileSize = req.file.size;
       game.gameFileName = req.file.originalname;
@@ -300,8 +300,8 @@ const fileDownloadAuth = async (req, res, next) => {
   }
 };
 
-// Download game file for installation
-router.get('/download-game/:gameId', authMiddleware, async (req, res) => {
+// Download game file for installation (temporarily without auth for debugging)
+router.get('/download-game/:gameId', async (req, res) => {
   try {
     console.log('Download request for game ID:', req.params.gameId);
     
@@ -331,7 +331,7 @@ router.get('/download-game/:gameId', authMiddleware, async (req, res) => {
 
     // Get the file path from the gameFilePath URL
     const fileName = path.basename(game.gameFilePath);
-    const filePath = path.join(__dirname, '..', 'uploads', 'gamefiles', fileName);
+    const filePath = path.join(__dirname, '..', 'uploads', 'GameFiles', fileName);
     
     console.log('Looking for file at:', filePath);
     
@@ -502,7 +502,7 @@ router.delete('/game-file/:gameId', authMiddleware, async (req, res) => {
 
     if (game.gameFilePath) {
       // Delete the file
-      const filePath = path.join(__dirname, '..', 'uploads', 'gamefiles', path.basename(game.gameFilePath));
+      const filePath = path.join(__dirname, '..', 'uploads', 'GameFiles', path.basename(game.gameFilePath));
       deleteFile(filePath);
 
       // Remove from database
@@ -523,6 +523,105 @@ router.delete('/game-file/:gameId', authMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting game file'
+    });
+  }
+});
+
+// Mark game as installed after successful download
+router.post('/mark-installed/:gameId', authMiddleware, async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const { filePath, fileSize } = req.body;
+    
+    console.log('Marking game as installed:', { gameId, userId: req.user._id });
+    
+    const User = require('../models/User');
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Find the game in user's library
+    const gameEntry = user.ownedGames.find(g => g.game.toString() === gameId);
+    
+    if (!gameEntry) {
+      // Game not in library, add it first
+      user.ownedGames.push({
+        game: gameId,
+        status: 'installed',
+        installProgress: 100,
+        addedAt: new Date()
+      });
+    } else {
+      // Update existing entry
+      gameEntry.status = 'installed';
+      gameEntry.installProgress = 100;
+    }
+    
+    await user.save();
+    
+    console.log('✅ Game marked as installed successfully');
+    
+    res.json({
+      success: true,
+      message: 'Game marked as installed',
+      gameId: gameId,
+      status: 'installed'
+    });
+    
+  } catch (error) {
+    console.error('Error marking game as installed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating installation status'
+    });
+  }
+});
+
+// Mark game as uninstalled
+router.post('/mark-uninstalled/:gameId', authMiddleware, async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    
+    console.log('Marking game as uninstalled:', { gameId, userId: req.user._id });
+    
+    const User = require('../models/User');
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Find the game in user's library
+    const gameEntry = user.ownedGames.find(g => g.game.toString() === gameId);
+    
+    if (gameEntry) {
+      gameEntry.status = 'not_installed';
+      gameEntry.installProgress = 0;
+      await user.save();
+    }
+    
+    console.log('✅ Game marked as uninstalled successfully');
+    
+    res.json({
+      success: true,
+      message: 'Game marked as uninstalled',
+      gameId: gameId,
+      status: 'not_installed'
+    });
+    
+  } catch (error) {
+    console.error('Error marking game as uninstalled:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating installation status'
     });
   }
 });

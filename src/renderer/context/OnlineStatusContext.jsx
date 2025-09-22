@@ -5,13 +5,16 @@ import { activityAPI } from '../services/api';
 
 const OnlineStatusContext = createContext();
 
-export const useOnlineStatus = () => {
+// Export hook as a function component for better HMR compatibility
+const useOnlineStatus = () => {
   const context = useContext(OnlineStatusContext);
   if (!context) {
     throw new Error('useOnlineStatus must be used within an OnlineStatusProvider');
   }
   return context;
 };
+
+export { useOnlineStatus };
 
 export const OnlineStatusProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
