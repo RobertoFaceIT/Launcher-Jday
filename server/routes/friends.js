@@ -158,22 +158,28 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const friendships = await Friend.getFriends(req.user._id);
     
-    const friends = friendships.map(friendship => {
-      // Determine which user is the friend (not the current user)
-      const friend = friendship.requester._id.toString() === req.user._id.toString() 
-        ? friendship.receiver 
-        : friendship.requester;
-      
-      return {
-        id: friend._id,
-        username: friend.username,
-        avatar: friend.avatar,
-        isOnline: friend.isOnline,
-        lastSeen: friend.lastSeen,
-        friendshipId: friendship._id,
-        friendsSince: friendship.createdAt
-      };
-    });
+    const friends = friendships
+      .filter(friendship => friendship.requester && friendship.receiver) // Filter out null users
+      .map(friendship => {
+        // Determine which user is the friend (not the current user)
+        const friend = friendship.requester._id.toString() === req.user._id.toString() 
+          ? friendship.receiver 
+          : friendship.requester;
+        
+        // Additional null check for the friend object
+        if (!friend) return null;
+        
+        return {
+          id: friend._id,
+          username: friend.username,
+          avatar: friend.avatar,
+          isOnline: friend.isOnline,
+          lastSeen: friend.lastSeen,
+          friendshipId: friendship._id,
+          friendsSince: friendship.createdAt
+        };
+      })
+      .filter(friend => friend !== null); // Remove any null results
 
     res.json({ friends });
   } catch (error) {
@@ -187,27 +193,31 @@ router.get('/requests', authMiddleware, async (req, res) => {
   try {
     const requests = await Friend.getPendingRequests(req.user._id);
     
-    const incomingRequests = requests.incoming.map(request => ({
-      id: request._id,
-      requester: {
-        id: request.requester._id,
-        username: request.requester.username,
-        avatar: request.requester.avatar
-      },
-      status: request.status,
-      createdAt: request.createdAt
-    }));
+    const incomingRequests = requests.incoming
+      .filter(request => request.requester) // Filter out null requesters
+      .map(request => ({
+        id: request._id,
+        requester: {
+          id: request.requester._id,
+          username: request.requester.username,
+          avatar: request.requester.avatar
+        },
+        status: request.status,
+        createdAt: request.createdAt
+      }));
 
-    const outgoingRequests = requests.outgoing.map(request => ({
-      id: request._id,
-      receiver: {
-        id: request.receiver._id,
-        username: request.receiver.username,
-        avatar: request.receiver.avatar
-      },
-      status: request.status,
-      createdAt: request.createdAt
-    }));
+    const outgoingRequests = requests.outgoing
+      .filter(request => request.receiver) // Filter out null receivers
+      .map(request => ({
+        id: request._id,
+        receiver: {
+          id: request.receiver._id,
+          username: request.receiver.username,
+          avatar: request.receiver.avatar
+        },
+        status: request.status,
+        createdAt: request.createdAt
+      }));
 
     res.json({
       incoming: incomingRequests,
