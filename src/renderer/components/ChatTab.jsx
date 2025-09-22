@@ -19,6 +19,11 @@ export default function ChatTab({
   const [previousUnreadCount, setPreviousUnreadCount] = useState(unreadCount);
   const statusInfo = getStatusDisplay(friend || {});
   const isTyping = typingByThread[String(friendshipId)];
+  
+  // Debug typing state
+  useEffect(() => {
+    console.log('🎯 ChatTab typing state:', { friendshipId, isTyping, typingByThread });
+  }, [friendshipId, isTyping, typingByThread]);
 
   // Play notification sound for new messages
   useEffect(() => {
@@ -48,6 +53,7 @@ export default function ChatTab({
         transition-all duration-200 ease-out hover:bg-neutral-700
         ${isExpanded ? 'border-b-transparent shadow-lg' : 'border-b-white/10'}
         ${unreadCount > 0 && !isExpanded ? 'ring-2 ring-blue-500/50 animate-pulse' : ''}
+        ${isTyping ? 'ring-1 ring-blue-400/30' : ''}
       `}
       onClick={onToggle}
     >
@@ -65,7 +71,8 @@ export default function ChatTab({
         <div 
           className={`
             absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-neutral-800
-            ${statusInfo.color === 'text-green-400' ? 'bg-green-400' : 
+            ${isTyping ? 'bg-blue-400 animate-pulse' :
+              statusInfo.color === 'text-green-400' ? 'bg-green-400' : 
               statusInfo.color === 'text-yellow-400' ? 'bg-yellow-400' : 'bg-gray-500'}
           `}
         />
@@ -91,7 +98,7 @@ export default function ChatTab({
         
         <div className="text-xs text-white/60 truncate">
           {isTyping ? (
-            <span className="text-blue-400 animate-pulse">typing...</span>
+            <span className="text-blue-400 animate-pulse font-medium">typing...</span>
           ) : (
             statusInfo.text
           )}
@@ -105,10 +112,14 @@ export default function ChatTab({
         </div>
       )}
 
-      {/* Typing indicator */}
+      {/* Typing indicator - shows in both expanded and minimized states */}
       {isTyping && (
-        <div className="absolute -top-1 left-1/2 transform -translate-x-1/2">
-          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+        <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="flex items-center gap-1 bg-neutral-800 px-2 py-1 rounded-full border border-blue-400/30">
+            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+          </div>
         </div>
       )}
 

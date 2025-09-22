@@ -61,6 +61,14 @@ export const ChatProvider = ({ children }) => {
 
     socket.on('chat:new', ({ message }) => {
       console.log('📩 New message received:', message);
+      
+      // Skip messages from current user (they're handled by chat:delivered)
+      const fromMe = String(message.senderId) === String(userIdRef.current || '');
+      if (fromMe) {
+        console.log('📩 Skipping own message, handled by chat:delivered');
+        return;
+      }
+      
       setMessagesByThread(prev => {
         const next = new Map(prev);
         const list = next.get(String(message.friendshipId)) || [];
@@ -69,10 +77,9 @@ export const ChatProvider = ({ children }) => {
       });
 
       // Update unread count if message from other user and thread not active
-      const fromMe = String(message.senderId) === String(userIdRef.current || '');
       const isActive = String(activeThreadIdRef.current || '') === String(message.friendshipId);
       console.log('📩 Message check - fromMe:', fromMe, 'isActive:', isActive, 'senderId:', message.senderId, 'userId:', userIdRef.current);
-      if (!fromMe && !isActive) {
+      if (!isActive) {
         console.log('📩 Updating unread count for:', message.friendshipId);
         setUnreadCounts(prev => {
           const newCount = (prev[String(message.friendshipId)] || 0) + 1;
@@ -101,11 +108,40 @@ export const ChatProvider = ({ children }) => {
     socket.on('chat:unread:set', handleUnreadSet);
 
     socket.on('chat:delivered', ({ tempId, messageId, createdAt }) => {
-      // Optionally match by tempId in optimistic queue
+      // Replace optimistic message with real message from server
+      setMessagesByThread(prev => {
+        const next = new Map(prev);
+        // Find which thread contains the optimistic message
+        for (const [threadId, list] of next.entries()) {
+          const optimisticMsg = list.find(m => m._id === tempId && m.optimistic);
+          if (optimisticMsg) {
+            // Remove optimistic message and add real one
+            const filtered = list.filter(m => m._id !== tempId);
+            const realMessage = { 
+              _id: messageId, 
+              friendshipId: threadId, 
+              senderId: userIdRef.current, 
+              text: optimisticMsg.text, 
+              createdAt, 
+              optimistic: false 
+            };
+            next.set(threadId, [...filtered, realMessage]);
+            break;
+          }
+        }
+        return next;
+      });
     });
 
     socket.on('chat:typing', ({ friendshipId, userId, isTyping }) => {
-      setTypingByThread(prev => ({ ...prev, [friendshipId]: isTyping }));
+      console.log('⌨️ Typing event received:', { friendshipId, userId, isTyping, currentUserId: userIdRef.current });
+      // Only show typing indicator for other users, not ourselves
+      if (String(userId) !== String(userIdRef.current)) {
+        console.log('⌨️ Setting typing indicator for friendship:', friendshipId, 'isTyping:', isTyping);
+        setTypingByThread(prev => ({ ...prev, [friendshipId]: isTyping }));
+      } else {
+        console.log('⌨️ Ignoring own typing event');
+      }
     });
 
     socket.on('chat:read', ({ friendshipId }) => {

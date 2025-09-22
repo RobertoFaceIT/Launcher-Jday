@@ -8,6 +8,7 @@ import { ToastContainer } from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import ChatManager from './components/ChatManager';
+import Footer from './components/Footer';
 import Store from './pages/Store.jsx';
 import Library from './pages/Library.jsx';
 import Profile from './pages/Profile.jsx';
@@ -149,22 +150,23 @@ const AppContent = () => {
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-900 text-white">
-      <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">🚀 Real-G Launcher</h1>
-        <div className="flex items-center gap-4">
-          <nav className="flex gap-3">
-            <NavBtn to="/">Store</NavBtn>
-            <NavBtn to="/library">Library</NavBtn>
-            <NavBtn to="/friends">Friends</NavBtn>
-          </nav>
-          <div className="pl-4 border-l border-white/20">
-            <UserDropdown user={user} logout={logout} />
+    <div className="min-h-screen bg-neutral-900 text-white flex flex-col">
+      <div className="flex-1 p-6 pb-20">
+        <header className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">🚀 Real-G Launcher</h1>
+          <div className="flex items-center gap-4">
+            <nav className="flex gap-3">
+              <NavBtn to="/">Store</NavBtn>
+              <NavBtn to="/library">Library</NavBtn>
+              <NavBtn to="/friends">Friends</NavBtn>
+            </nav>
+            <div className="pl-4 border-l border-white/20">
+              <UserDropdown user={user} logout={logout} />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container mx-auto pt-4"style={{ paddingRight: '30px' }}>
+        <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
         <Routes>
           <Route path="/" element={<Store />} />
           <Route path="/game/:gameId" element={<GameDetails />} />
@@ -209,7 +211,9 @@ const AppContent = () => {
           <Route path="/register" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </main>
+        </main>
+      </div>
+      <Footer />
     </div>
   );
 };
