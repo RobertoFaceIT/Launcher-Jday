@@ -5,11 +5,14 @@ import { chatAPI } from '../services/api';
 
 const ChatContext = createContext();
 
-export const useChat = () => {
+// Export hook with better HMR compatibility
+const useChat = () => {
   const ctx = useContext(ChatContext);
   if (!ctx) throw new Error('useChat must be used within ChatProvider');
   return ctx;
 };
+
+export { useChat };
 
 export const ChatProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();

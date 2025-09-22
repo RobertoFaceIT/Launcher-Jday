@@ -104,4 +104,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthContext;
+// Remove default export to fix HMR issues
