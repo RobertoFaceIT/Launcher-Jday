@@ -363,7 +363,11 @@ const Chat = () => {
                   const lastMessage = getLastMessage(chatId);
                   const unreadCount = unreadCounts[chatId] || 0;
                   const isOnline = isUserOnline(friendInfo._id, friend);
-                  const isSelected = selectedChat && (selectedChat._id === friend._id || selectedChat.friendshipId === friend.friendshipId);
+                  // Fix: Use more precise comparison to avoid multiple selections
+                  const isSelected = selectedChat && (
+                    (selectedChat.friendshipId && friend.friendshipId && selectedChat.friendshipId === friend.friendshipId) ||
+                    (!selectedChat.friendshipId && !friend.friendshipId && selectedChat._id === friend._id)
+                  );
 
                   return (
                     <div

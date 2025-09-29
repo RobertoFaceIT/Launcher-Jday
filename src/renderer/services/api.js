@@ -6,8 +6,7 @@ console.log('🔍 NODE_ENV:', import.meta.env.NODE_ENV);
 console.log('🔍 MODE:', import.meta.env.MODE);
 
 // Force the API URL for now
-const FORCED_API_URL = 'http://192.168.22.161:3000';
-const API_BASE_URL = import.meta.env.VITE_API_URL || FORCED_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const FINAL_BASE_URL = API_BASE_URL + '/api';
 
 console.log('🔗 Final API Base URL:', FINAL_BASE_URL);
