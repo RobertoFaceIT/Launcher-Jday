@@ -19,25 +19,48 @@ export const AuthProvider = ({ children }) => {
 
   // Restore user session on app load
   useEffect(() => {
+    console.log('AuthContext: Starting session restore');
+    
     const restoreSession = async () => {
       const token = localStorage.getItem('authToken');
       if (!token) {
+        console.log('No auth token found, showing HomePage');
         setLoading(false);
         return;
       }
 
       try {
+        console.log('Verifying existing token...');
         const response = await authAPI.verify();
+        console.log('Token verification successful:', response.data);
         setUser(response.data.user);
       } catch (error) {
         console.error('Session restore failed:', error);
         localStorage.removeItem('authToken');
+        // Don't redirect here, just clear the token and show HomePage
       } finally {
+        console.log('Auth verification complete, setting loading to false');
         setLoading(false);
       }
     };
 
-    restoreSession();
+    // Immediately set loading to false if no token (for faster initial load)
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.log('No token found, immediately showing HomePage');
+      setLoading(false);
+      return;
+    }
+
+    // Add a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('Auth verification timed out, setting loading to false');
+      setLoading(false);
+    }, 3000); // Reduced to 3 seconds
+
+    restoreSession().finally(() => {
+      clearTimeout(timeoutId);
+    });
   }, []);
 
   const login = async (credentials) => {

@@ -18,11 +18,13 @@ import Downloads from './pages/Downloads.jsx';
 import Chat from './pages/Chat.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import HomePage from './pages/HomePage.jsx';
 import GameDetails from './pages/GameDetails.jsx';
 import AdminDashboard from './pages/AdminPages/AdminDashboard.jsx';
 import AdminUsers from './pages/AdminPages/AdminUsers.jsx';
 import AdminGames from './pages/AdminPages/AdminGames.jsx';
 import AdminFriendRequests from './pages/AdminPages/AdminFriendRequests.jsx';
+import AdminHomePageEditor from './pages/AdminPages/AdminHomePageEditor.jsx';
 import AddGames from './pages/AdminPages/AddGames.jsx';
 
 const NavBtn = ({ to, children }) => (
@@ -139,17 +141,35 @@ const UserDropdown = ({ user, logout }) => {
 };
 
 const AppContent = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, loading } = useAuth();
+
+  console.log('AppContent render:', { isAuthenticated, loading, user: !!user });
+
+  // Show loading screen while checking authentication
+  if (loading) {
+    console.log('Showing loading screen');
+    return (
+      <div className="min-h-screen bg-neutral-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/70">Loading Real-G Launcher...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
+    console.log('User not authenticated, showing public routes including HomePage');
     return (
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white flex flex-col">
@@ -246,6 +266,13 @@ const AppContent = () => {
             <ProtectedAdminRoute>
               <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
                 <AdminFriendRequests />
+              </main>
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/homepage" element={
+            <ProtectedAdminRoute>
+              <main className="container mx-auto pt-4" style={{ paddingRight: '30px' }}>
+                <AdminHomePageEditor />
               </main>
             </ProtectedAdminRoute>
           } />

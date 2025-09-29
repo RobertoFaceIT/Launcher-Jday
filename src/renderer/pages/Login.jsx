@@ -39,6 +39,12 @@ export default function Login() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold">🚀 NSP Launcher</h1>
             <p className="text-white/70 mt-2">Sign in to your account</p>
+            <Link
+              to="/"
+              className="inline-block mt-3 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              ← Back to Home
+            </Link>
           </div>
 
 

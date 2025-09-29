@@ -107,7 +107,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Link
             to="/admin/users"
             className="bg-neutral-800 rounded-lg p-6 border border-neutral-700 hover:border-blue-500 transition-colors group"
@@ -135,6 +135,21 @@ const AdminDashboard = () => {
             </div>
             <p className="text-white/70 text-sm">
               Add, edit, and manage games in the store
+            </p>
+          </Link>
+
+          <Link
+            to="/admin/homepage"
+            className="bg-neutral-800 rounded-lg p-6 border border-neutral-700 hover:border-purple-500 transition-colors group"
+          >
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
+                🏠
+              </div>
+              <h3 className="text-lg font-semibold text-white group-hover:text-purple-400">HomePage Editor</h3>
+            </div>
+            <p className="text-white/70 text-sm">
+              Edit homepage content, features, and sections
             </p>
           </Link>
 

@@ -22,6 +22,7 @@ const chatRoutes = require('./routes/chat');
 const Friend = require('./models/Friend');
 const Message = require('./models/Message');
 const User = require('./models/User');
+const homePageRoutes = require('./routes/homePage');
 
 // Initialize Express app
 const app = express();
@@ -67,6 +68,8 @@ app.use('/api/games', gameRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
+app.use("/api/homepage", homePageRoutes);
+
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

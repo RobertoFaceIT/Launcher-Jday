@@ -46,9 +46,19 @@ api.interceptors.response.use(
   (error) => {
     console.error('❌ API response error:', error.config?.url, error.response?.status, error.message);
     if (error.response?.status === 401) {
-      // Token expired or invalid
+      // Only redirect to login if we actually had a token (user was authenticated)
+      const hadToken = localStorage.getItem('authToken');
       localStorage.removeItem('authToken');
-      window.location.hash = '#/login';
+      
+      // Temporarily disable automatic redirect to debug the issue
+      console.warn('401 error detected, but NOT redirecting to prevent loops');
+      /*
+      // Only redirect if the user was actually logged in (had a token)
+      // This prevents redirecting to login on public endpoints
+      if (hadToken) {
+        window.location.hash = '#/login';
+      }
+      */
     }
     return Promise.reject(error);
   }
